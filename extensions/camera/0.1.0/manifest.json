@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "id": "camera",
+  "version": "0.1.0",
+  "description": "摄像头插件：模拟设备枚举与单帧图像采集",
+  "type": "javascript",
+  "entry": "main.js",
+  "platforms": ["any"],
+  "permissions": [],
+  "plugin": {
+    "kind": "camera",
+    "mode": "mock",
+    "transport": "mock",
+    "contract": "foundry.camera.v1"
+  },
+  "capabilities": {
+    "devices": {
+      "description": "枚举当前插件提供的模拟设备",
+      "export": "devices",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {},
+        "required": []
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "pluginKind": {
+            "const": "camera"
+          },
+          "mode": {
+            "enum": ["mock", "adapter"]
+          },
+          "devices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "transport": {
+                  "enum": [
+                    "mock",
+                    "usb",
+                    "serial",
+                    "hid",
+                    "network",
+                    "system",
+                    "sdk"
+                  ]
+                },
+                "status": {
+                  "enum": ["ready", "unavailable"]
+                }
+              },
+              "required": ["id", "name", "transport", "status"]
+            },
+            "maxItems": 256
+          }
+        },
+        "required": ["schemaVersion", "pluginKind", "mode", "devices"]
+      }
+    },
+    "capture": {
+      "description": "摄像头插件：模拟设备枚举与单帧图像采集",
+      "export": "capture",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "format": {
+            "const": "png"
+          }
+        },
+        "required": []
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "foundry.camera.v1",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "pluginKind": {
+            "const": "camera"
+          },
+          "mode": {
+            "enum": ["mock", "adapter"]
+          },
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "mimeType": {
+                    "enum": ["image/png", "image/jpeg"]
+                  },
+                  "base64": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 1048576,
+                    "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 32768
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 32768
+                  }
+                },
+                "required": ["mimeType", "base64", "width", "height"]
+              }
+            },
+            "required": ["image"]
+          }
+        },
+        "required": ["schemaVersion", "pluginKind", "mode", "deviceId", "data"]
+      }
+    }
+  }
+}

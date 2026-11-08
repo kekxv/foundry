@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "id": "native-math",
+  "version": "0.1.0",
+  "description": "Call native math through libffi",
+  "type": "native-library",
+  "entry": "main.js",
+  "platforms": ["windows-x64", "macos-arm64", "linux-x64", "linux-arm64"],
+  "permissions": ["native.call"],
+  "capabilities": {
+    "add": {
+      "description": "add",
+      "export": "add",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "a": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+          },
+          "b": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+          }
+        },
+        "required": ["a", "b"]
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "integer"
+          }
+        },
+        "required": ["result"]
+      }
+    },
+    "hypot": {
+      "description": "Euclidean norm",
+      "export": "hypot",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "a": {
+            "type": "number"
+          },
+          "b": {
+            "type": "number"
+          }
+        },
+        "required": ["a", "b"]
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "number"
+          }
+        },
+        "required": ["result"]
+      }
+    }
+  },
+  "libraries": {
+    "math": {
+      "abi": "c",
+      "paths": {
+        "windows-x64": "lib/foundry_native_math.dll",
+        "macos-arm64": "lib/libfoundry_native_math.dylib",
+        "linux-x64": "lib/libfoundry_native_math.so",
+        "linux-arm64": "lib/libfoundry_native_math.so"
+      },
+      "symbols": {
+        "add": {
+          "symbol": "foundry_add",
+          "parameters": ["i32", "i32"],
+          "returns": "i32"
+        },
+        "hypot": {
+          "symbol": "foundry_hypot",
+          "parameters": ["f64", "f64"],
+          "returns": "f64"
+        }
+      }
+    }
+  }
+}

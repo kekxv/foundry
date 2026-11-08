@@ -1,0 +1,17 @@
+/target/
+/.superpowers/
+/node_modules/
+/website/node_modules/
+/website/dist/
+/website/.astro/
+/dist/
+*.pem
+.env
+/website/public/registry/
+*.key
+core
+core.*
+__pycache__/
+*.pyc
+
+/.venv/

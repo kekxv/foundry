@@ -1,0 +1,15 @@
+# Pure-JS packages use the same platform=any ZIP on every CI runner.
+* text=auto
+*.js text eol=lf
+*.mjs text eol=lf
+*.ts text eol=lf
+*.astro text eol=lf
+*.css text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.rs text eol=lf
+*.toml text eol=lf
+*.lock text eol=lf
+*.py text eol=lf

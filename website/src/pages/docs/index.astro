@@ -1,0 +1,189 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="开发文档">
+  <div class="page-title wrap">
+    <div class="eyebrow">BUILD YOUR OWN CAPABILITY</div>
+    <h1>从一个函数开始。</h1>
+    <p>
+      直接参考正式扩展，编写自己的能力接口。无需单独的示例项目，也无需 Node.js
+      运行时。
+    </p>
+  </div>
+  <div class="doc-layout wrap">
+    <aside class="doc-nav" aria-label="开发文档目录">
+      <span>DEVELOPER GUIDE</span>
+      <a href="#quick-start">快速开始</a>
+      <a href="#architecture">运行机制</a>
+      <a href="#javascript">JavaScript 扩展</a>
+      <a href="#executable">命令行扩展</a>
+      <a href="#native">动态库扩展</a>
+      <a href="#device-plugins">设备与识别插件</a>
+      <a href="#manifest">描述扩展</a>
+      <a href="#platforms">支持平台</a>
+      <a href="#versioning">版本与测试</a>
+      <a href="#publishing">发布与信任</a>
+    </aside>
+    <article class="content">
+      <h2 id="quick-start">快速开始</h2>
+      <p>
+        安装仓库固定版本的 Rust，以及 C/C++ 编译工具、make 和 autoconf；Windows
+        使用 MSVC 工具链。libffi 由构建过程静态链接，用户无需单独安装。
+      </p>
+      <pre tabindex="0" is:raw>python3 -m pip install -r requirements-ci.txt
+cargo build --workspace --locked
+python3 scripts/build_extensions.py
+./target/debug/foundry dev run extensions/text-utils/0.1.0 normalize \
+  --input '{"text":"  hello  "}'</pre>
+      <p>
+        Windows 将 python3 替换为 python，程序路径使用
+        target/debug/foundry.exe；PowerShell
+        多行续行符使用反引号。也可以直接将命令写在同一行。
+      </p>
+      <h2 id="architecture">运行机制</h2>
+      <p>
+        manifest.json 声明能力和 JSON Schema；main.js 导出函数。QuickJS 加载 ES
+        Modules，驱动 Promise，并限制内存和执行时间。Rust
+        桥接负责权限检查，worker 执行命令行与 libffi
+        调用。能力返回值必须可序列化为 JSON。
+      </p>
+      <h2 id="javascript">01 / 纯 JavaScript</h2>
+      <p>
+        正式源码：extensions/text-utils。normalize 接收 text，将 CRLF 转为 LF
+        并去除首尾空白。
+      </p>
+      <pre tabindex="0">{`export async function normalize({ text }) {\n  return { text: text.replace(/\\r\\n/g, "\\n").trim() };\n}`}</pre>
+      <p>
+        QuickJS 支持 export async 和包内相对导入。没有 Node.js 的
+        fs、process、require，也不暴露 QuickJS 的 std/os 模块。
+      </p>
+      <h2 id="executable">02 / 命令行扩展</h2>
+      <p>
+        正式源码：extensions/file-digest。manifest 按平台声明程序位置，JS
+        通过逻辑 ID 调用它；参数不经过 shell。
+      </p>
+      <pre tabindex="0">{`export async function digest({ path }) {\n  const result = await host.exec("digest", [path]);\n  if (result.exitCode !== 0) throw new Error(result.stderr);\n  return JSON.parse(result.stdout);\n}`}</pre>
+      <pre
+        tabindex="0"
+        is:raw
+      >./target/debug/foundry dev run dist/dev/file-digest digest \
+  --grant process.spawn --input '{"path":"/absolute/path/to/file"}'</pre>
+      <h2 id="native">03 / 动态库扩展</h2>
+      <p>
+        正式源码：extensions/native-math。使用默认平台 C ABI，通过 libffi
+        按声明签名调用。C++ 库需要 extern "C" 包装，不能直接调用任意 C++
+        对象或重载接口。
+      </p>
+      <pre tabindex="0">{`"symbols": {\n  "add": {\n    "symbol": "foundry_add",\n    "parameters": ["i32", "i32"],\n    "returns": "i32"\n  }\n}`}</pre>
+      <pre tabindex="0">{`export async function add({ a, b }) {\n  if (a + b < -2147483648 || a + b > 2147483647)\n    throw new RangeError("sum exceeds i32 range");\n  return { result: await host.library("math").call("add", [a, b]) };\n}`}</pre>
+      <pre
+        tabindex="0"
+        is:raw
+      >./target/debug/foundry dev run dist/dev/native-math add \
+  --grant native.call --input '{"a":2,"b":3}'</pre>
+      <p>
+        支持 i32、u32、f64、cstring 和 buffer 输入，以及标量或 void 返回。buffer
+        展开为 pointer +
+        size_t，存储在调用期间保持有效。不支持裸指针、变参、结构体按值传递、回调和原生分配内存返回。
+      </p>
+      <h2 id="device-plugins">设备与识别插件</h2>
+      <p>
+        插件的用途与实现方式独立：plugin.kind 描述读卡器、摄像头、OCR
+        或串口；type 仍为 javascript、executable 或
+        native-library。四个正式插件首版均为 mock 模式，不访问真实硬件。
+      </p>
+      <pre
+        tabindex="0"
+        is:raw
+      >foundry dev run extensions/id-card-reader/0.1.0 read-card --input '{}'
+foundry dev run extensions/camera/0.1.0 capture --input '{}'
+foundry dev run extensions/serial-port/0.1.0 exchange --input '{"message":"PING"}'</pre>
+      <p>
+        身份证结果包含 schemaVersion、pluginKind、mode、deviceId 及 data；data
+        固定包含姓名、性别、民族、出生日期、地址、证件号、签发机关、有效期和照片。模拟证件号使用无效地区码，照片为
+        null，不代表真实证件。
+      </p>
+      <pre tabindex="0">{JSON.stringify({schemaVersion:1,pluginKind:'id-card-reader',mode:'mock',deviceId:'mock-id-card-reader-01',data:{documentType:'cn-resident-id',name:'模拟测试人员',gender:'unknown',ethnicity:'测试民族',birthDate:'1990-01-01',address:'测试省测试市测试区示例路1号',idNumber:'000000199001010000',issuingAuthority:'模拟签发机关',validFrom:'2020-01-01',validTo:'2030-01-01',photo:null}},null,2)}</pre>
+      <p>
+        摄像头 capture 返回带格式、尺寸和 Base64 的单帧图像；OCR recognize
+        接收图像并返回文字、置信度及位置框；串口 exchange 返回请求与响应。OCR
+        首版返回固定模拟文字，不运行识别模型。实际接入时保持同一个数据合同，使用新的
+        adapter 版本，经 host.exec 或 libffi 调用已经编译的厂商桥接程序。
+      </p>
+      <p class="callout">
+        每次原生调用使用独立
+        worker；首版支持单次操作，不维护跨调用设备会话或视频流。复杂 SDK
+        结构体、指针和字符串输出应由命令行适配器转换成 JSON；libffi
+        只支持文档列出的 C ABI 类型。
+      </p>
+      <h2 id="manifest">描述扩展</h2>
+      <pre tabindex="0">{`{\n  "schemaVersion": 1,\n  "id": "text-utils",\n  "version": "0.1.0",\n  "description": "Normalize text",\n  "type": "javascript",\n  "entry": "main.js",\n  "platforms": ["any"],\n  "permissions": [],\n  "capabilities": {\n    "normalize": {\n      "description": "Normalize text",\n      "export": "normalize",\n      "input": {"type":"object","properties":{"text":{"type":"string"}},"required":["text"]},\n      "output": {"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}\n    }\n  }\n}`}</pre>
+      <h2 id="platforms">支持平台</h2>
+      <p>
+        正式发布面向四个目标平台。macOS 使用 Apple
+        Silicon（arm64）。原生扩展按目标平台分发已编译文件，使用者无须自行编译。
+      </p>
+      <table>
+        <tbody>
+          <tr>
+            <th>Windows</th>
+            <td>x64 · Windows 2022 构建基线</td>
+          </tr>
+          <tr>
+            <th>macOS</th>
+            <td>arm64 · Apple Silicon · macOS 15 构建基线</td>
+          </tr>
+          <tr>
+            <th>Linux</th>
+            <td>
+              x64 · Ubuntu 22.04 / glibc 2.35
+              <br />
+              arm64 · Ubuntu 24.04 / glibc 2.39
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p>平台测试结果以对应 CI runner 为准；当前仓库尚未完成首次正式发布。</p>
+      <h2 id="versioning">版本与独立测试</h2>
+      <p>
+        每个版本保存在 extensions/&lt;id&gt;/&lt;version&gt;/，包含
+        manifest.json、main.js 和 presubmit.yml。原生源码仅由 CI
+        编译，发布包包含可直接使用的二进制与 JS
+        接口。已发布版本保留原始摘要和地址，修复通过新增版本发布。
+      </p>
+      <pre tabindex="0" is:raw>python3 scripts/test_extension.py \
+  --extension native-math --version 0.1.0 --platform linux-x64
+
+# 配置可信索引和公钥根后，下载指定版本的成品包
+foundry get native-math --version 0.1.0 --output native-math.zip</pre>
+      <p>
+        PR 提供版本 diff
+        报告及各平台测试日志；扩展版本可单独测试，撤回和恢复由新的签名索引生效。
+      </p>
+      <h2 id="publishing">发布与信任</h2>
+      <p>
+        提交扩展源码和 manifest，通过 PR
+        的平台构建、接口及安全检查。合并后，对固定提交构建候选产物；受保护环境审批后签名并发布。私钥只在签名
+        job 中可用，PR 构建拿不到私钥。
+      </p>
+      <p>
+        安装前从项目可信来源获取公钥根文件，使用 --trust-root 指定；使用 --index
+        指定 HTTPS 索引或显式本地签名索引。客户端验证 Ed25519
+        签名、索引序号和有效期、ZIP
+        哈希及逐文件清单。当前未配置生产仓库和密钥，正式下载暂未开放。
+      </p>
+      <pre tabindex="0" is:raw>foundry --trust-root ./trust-root.json \
+  --index https://YOUR-TRUSTED-HOST/index.json install text-utils</pre>
+      <p>
+        详细格式、安全边界及管理员发布步骤见仓库
+        docs/extension-format.md、docs/ffi.md、docs/security.md 和
+        docs/publishing.md。
+      </p>
+      <p class="callout">
+        dev run 表示你主动信任本地源码；正式 run 仅接受已安装扩展
+        ID。原生代码执行不是 OS 沙箱，签名也不保证代码本身无恶意。
+      </p>
+    </article>
+  </div>
+</Base>

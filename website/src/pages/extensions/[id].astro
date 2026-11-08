@@ -1,0 +1,181 @@
+---
+import Base from '../../layouts/Base.astro';
+import {
+  extensions,
+  descriptions,
+  isPublished,
+  versionHistory,
+  typeLabels,
+  platformLabels,
+  pluginKindLabels,
+  sampleCalls,
+} from '../../catalogue';
+export function getStaticPaths() {
+  return extensions.map(extension => ({
+    params: {id: extension.id},
+    props: {extension},
+  }));
+}
+const {extension: e} = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const grant = e.permissions.map(p => ` --grant ${p}`).join('');
+const call = sampleCalls[e.id] || {
+  capability: Object.keys(e.capabilities)[0],
+  input: '{}',
+};
+---
+
+<Base title={e.id}>
+  <div class="page-title wrap">
+    <a class="breadcrumb" href={`${base}/extensions/`}>
+      ← 扩展目录
+    </a>
+    <div class="eyebrow">
+      OFFICIAL EXTENSION / {typeLabels[e.type] || e.type}
+    </div>
+    <h1>{e.id}</h1>
+    <p>{descriptions[e.id] || e.description}</p>
+    <span class="badge">
+      <span class="status-dot" aria-hidden="true"></span>v{e.version} ·{' '}
+      {isPublished(e.id, e.version) ? '已签名发布' : '首次签名发布准备中'}
+    </span>
+  </div>
+  <div class="doc-layout detail-layout wrap">
+    <aside class="doc-nav" aria-label="扩展详情导航">
+      <span>ON THIS PAGE</span>
+      <a href="#install">安装与调用</a>
+      <a href="#specification">扩展信息</a>
+      <a href="#versions">版本记录</a>
+      <a href="#capabilities">能力接口</a>
+    </aside>
+    <article class="content">
+      {e.plugin && (
+        <p class="callout">
+          <strong>
+            {pluginKindLabels[e.plugin.kind] || e.plugin.kind} ·{' '}
+            {e.plugin.mode === 'mock' ? '模拟插件' : '原生适配器'}
+          </strong>
+          <br />
+          {e.plugin.mode === 'mock'
+            ? '此版本使用模拟设备和固定数据，不会读取真实身份证、打开摄像头或执行真实 OCR。'
+            : '真实设备由此插件的原生适配器访问，请核对厂商、平台和执行权限。'}
+        </p>
+      )}
+      <h2 id="install">安装与调用</h2>
+      <p>
+        先配置可信索引与公钥根，再使用以下命令。首次发布前可参考开发文档在本地构建体验。
+      </p>
+      <pre tabindex="0">{`foundry install ${e.id}${grant}\nfoundry run ${e.id} ${call.capability} --input '${call.input}'`}</pre>
+      <h2 id="specification">扩展信息</h2>
+      <table>
+        <tbody>
+          <tr>
+            <th>实现类型</th>
+            <td>
+              {typeLabels[e.type] || e.type} <code>({e.type})</code>
+            </td>
+          </tr>
+          <tr>
+            <th>目标平台</th>
+            <td>{e.platforms.map(p => platformLabels[p] || p).join(' / ')}</td>
+          </tr>
+          <tr>
+            <th>所需权限</th>
+            <td>{e.permissions.join(', ') || '无需额外权限'}</td>
+          </tr>
+          {e.plugin && (
+            <>
+              <tr>
+                <th>插件种类</th>
+                <td>{pluginKindLabels[e.plugin.kind] || e.plugin.kind}</td>
+              </tr>
+              <tr>
+                <th>运行模式 / 接口</th>
+                <td>
+                  {e.plugin.mode} / {e.plugin.transport}
+                </td>
+              </tr>
+              <tr>
+                <th>数据合同</th>
+                <td>
+                  <code>{e.plugin.contract}</code>
+                </td>
+              </tr>
+            </>
+          )}
+          <tr>
+            <th>JS 入口</th>
+            <td>
+              <code>{e.entry}</code>
+            </td>
+          </tr>
+          <tr>
+            <th>源码目录</th>
+            <td>
+              <code>
+                extensions/{e.id}/{e.version}/
+              </code>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <h2 id="versions">版本记录</h2>
+      <p>
+        指定版本安装：
+        <code>
+          foundry install {e.id} --version {e.version}
+          {grant}
+        </code>
+        。
+      </p>
+      <table>
+        <tbody>
+          {versionHistory[e.id].map(v => (
+            <tr>
+              <th>v{v.version}</th>
+              <td>
+                {v.reason
+                  ? `已撤回：${v.reason}`
+                  : isPublished(e.id, v.version)
+                    ? '已签名发布'
+                    : '待首次发布'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <h2 id="capabilities">能力接口</h2>
+      {e.plugin && (
+        <p>
+          数据操作统一返回{' '}
+          <code>schemaVersion / pluginKind / mode / deviceId / data</code>
+          ；设备枚举使用 <code>devices</code> 数组。
+          <a href={`${base}/docs/#device-plugins`}>查看固定结构与调用说明 →</a>
+        </p>
+      )}
+      {Object.entries(e.capabilities).map(([name, cap]) => (
+        <section class="capability-section">
+          <h3>{name}()</h3>
+          <p>{cap.description}</p>
+          <details class="contract-details">
+            <summary>
+              查看接口 Schema <span>JSON · 输入与输出</span>
+            </summary>
+            <pre
+              tabindex="0"
+              aria-label={`${name} 输入输出 JSON Schema`}
+            >{JSON.stringify({input:cap.input,output:cap.output},null,2)}</pre>
+          </details>
+        </section>
+      ))}
+      {e.type !== 'javascript' && (
+        <p class="callout">
+          此扩展执行原生代码。独立进程用于故障隔离，不能限制原生代码的全部文件或网络访问。请只授权可信发布者的扩展。
+        </p>
+      )}
+      <p>
+        <a href={`${base}/docs/`}>用这个扩展作为起点，编写自己的能力 →</a>
+      </p>
+    </article>
+  </div>
+</Base>

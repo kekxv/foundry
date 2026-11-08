@@ -1,0 +1,11 @@
+**/node_modules/**
+**/target/**
+**/dist/**
+**/.git/**
+**/.astro/**
+**/__pycache__/**
+**/.superpowers/**
+website/public/registry/**
+**/package-lock.json
+**/Cargo.lock
+**/.venv/**

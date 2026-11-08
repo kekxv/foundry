@@ -1,0 +1,54 @@
+---
+import {
+  descriptions,
+  icons,
+  isPublished,
+  typeLabels,
+  pluginKindLabels,
+  type Extension,
+} from '../catalogue';
+interface Props {
+  extension: Extension;
+  index: number;
+}
+const {extension: e, index} = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+
+<a class="card" href={`${base}/extensions/${e.id}/`}>
+  <div class="card-top">
+    <span class="icon" aria-hidden="true">
+      {icons[e.id] || '+'}
+    </span>
+    <span class="card-index">/{String(index + 1).padStart(2, '0')}</span>
+  </div>
+  {e.plugin && (
+    <div class="plugin-caption">
+      <span>{pluginKindLabels[e.plugin.kind] || e.plugin.kind}</span>
+      <span class="plugin-mode">
+        {e.plugin.mode === 'mock' ? '模拟插件' : '原生适配器'}
+      </span>
+    </div>
+  )}
+  <div class="card-title">
+    <h3>{e.id}</h3>
+    <span class="tag">{typeLabels[e.type] || e.type}</span>
+  </div>
+  <p>{descriptions[e.id] || e.description}</p>
+  <div class="capabilities">
+    {Object.keys(e.capabilities).map(name => (
+      <span>{name}()</span>
+    ))}
+  </div>
+  <div class="card-bottom">
+    <span>
+      v{e.version}
+      <span class="card-status">
+        {isPublished(e.id, e.version) ? '已签名发布' : '待首次发布'}
+      </span>
+    </span>
+    <span class="card-arrow" aria-hidden="true">
+      ↗
+    </span>
+  </div>
+</a>

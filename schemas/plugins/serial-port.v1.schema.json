@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "foundry.serial.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "pluginKind": {
+      "const": "serial"
+    },
+    "mode": {
+      "enum": ["mock", "adapter"]
+    },
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "response": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "encoding": {
+          "const": "utf8"
+        }
+      },
+      "required": ["request", "response", "encoding"]
+    }
+  },
+  "required": ["schemaVersion", "pluginKind", "mode", "deviceId", "data"]
+}

@@ -1,0 +1,38 @@
+matrix:
+  platform: [linux-x64, linux-arm64, macos-arm64, windows-x64]
+tasks:
+  {
+    'devices':
+      {
+        'capability': 'devices',
+        'input': {},
+        'expect':
+          {
+            'schemaVersion': 1,
+            'pluginKind': 'serial',
+            'mode': 'mock',
+            'devices':
+              [
+                {
+                  'id': 'mock-serial-port-01',
+                  'name': 'Mock Serial Port',
+                  'transport': 'mock',
+                  'status': 'ready',
+                },
+              ],
+          },
+      },
+    'exchange':
+      {
+        'capability': 'exchange',
+        'input': {'message': 'PING'},
+        'expect':
+          {
+            'schemaVersion': 1,
+            'pluginKind': 'serial',
+            'mode': 'mock',
+            'deviceId': 'mock-serial-port-01',
+            'data': {'request': 'PING', 'response': 'PONG', 'encoding': 'utf8'},
+          },
+      },
+  }

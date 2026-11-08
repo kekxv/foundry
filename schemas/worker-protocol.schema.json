@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Foundry worker request v1",
+  "type": "object",
+  "required": [
+    "version",
+    "requestId",
+    "root",
+    "request",
+    "timeoutMs",
+    "dataRoot",
+    "responsePath"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "requestId": {
+      "type": "integer"
+    },
+    "root": {
+      "type": "string"
+    },
+    "timeoutMs": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30000
+    },
+    "request": {
+      "type": "object"
+    },
+    "dataRoot": {
+      "type": "string"
+    },
+    "responsePath": {
+      "type": "string"
+    }
+  }
+}

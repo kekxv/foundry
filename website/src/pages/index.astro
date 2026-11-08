@@ -1,0 +1,305 @@
+---
+import Base from '../layouts/Base.astro';
+import ExtensionCard from '../components/ExtensionCard.astro';
+import {extensions, hasRegistry} from '../catalogue';
+const coreExtensions = extensions.filter(e => !e.plugin);
+const plugins = extensions.filter(e => e.plugin);
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+
+<Base title="小接口，大能力">
+  <section class="hero wrap">
+    <div class="hero-copy">
+      <div class="eyebrow">
+        <span class="status-dot" aria-hidden="true"></span> THE OPEN EXTENSION
+        TOOLKIT
+      </div>
+      <h1>
+        把需要的能力，
+        <br />
+        装进你的<span class="accent-word">工具箱。</span>
+      </h1>
+      <p class="hero-description">
+        一个 JavaScript 接口，连接不同的实现。
+        <br class="desktop-break" />
+        从纯脚本到命令行、原生动态库，让每项功能都能按需安装。
+      </p>
+      <div class="buttons">
+        <a class="button primary" href={`${base}/extensions/`}>
+          探索扩展 <span aria-hidden="true">↗</span>
+        </a>
+        <a class="button text-button" href={`${base}/docs/`}>
+          编写第一个扩展 <span aria-hidden="true">→</span>
+        </a>
+      </div>
+      <div class="hero-footnote">
+        <span class="tiny-mark" aria-hidden="true">
+          ✳
+        </span>
+        <span>轻量接口。原生能力。由你组合。</span>
+      </div>
+    </div>
+    <div class="code-stage">
+      <div class="stage-caption">
+        <span>SMALL INTERFACE. NATIVE POWER.</span>
+        <span>01 — 03</span>
+      </div>
+      <div class="code-window">
+        <div class="term-head">
+          <span class="lights" aria-hidden="true">
+            <i></i>
+            <i></i>
+            <i></i>
+          </span>
+          <span>native-math / main.js</span>
+          <span class="file-badge">JS</span>
+        </div>
+        <pre
+          tabindex="0"
+          is:raw
+        ><span class="code-comment">// 你熟悉的 JavaScript 接口</span>
+<span class="code-keyword">export async function</span> <span class="code-function">add</span>({ a, b }) {
+  <span class="code-keyword">return</span> {
+    result: <span class="code-keyword">await</span> host.library(<span class="code-string">"math"</span>)
+                      .call(<span class="code-string">"add"</span>, [a, b])
+  };
+}</pre>
+        <div class="runtime-chain">
+          <span>JavaScript</span>
+          <i aria-hidden="true">→</i>
+          <span>QuickJS</span>
+          <i aria-hidden="true">→</i>
+          <span class="chain-native">libffi / C ABI</span>
+        </div>
+      </div>
+      <div class="run-panel">
+        <div class="run-label">
+          <span class="prompt">❯</span> ONE COMMAND AWAY
+        </div>
+        <code>
+          foundry run native-math add
+          <br />
+          <span class="dim" is:raw>--input '{"a": 2, "b": 3}'</span>
+        </code>
+        <div class="run-result">
+          <span>
+            <span class="status-dot" aria-hidden="true"></span> JSON OUTPUT
+          </span>
+          <code>{'{ "result": 5 }'}</code>
+        </div>
+      </div>
+      <span class="stage-stamp" aria-hidden="true">
+        f.
+      </span>
+    </div>
+  </section>
+
+  <section class="platform-strip wrap" aria-label="支持的平台">
+    <div class="platform-intro">
+      <span class="eyebrow">BUILT TO TRAVEL</span>
+      <span>3 个系统，4 个目标平台。</span>
+    </div>
+    <div class="platform">
+      <span class="os-symbol" aria-hidden="true">
+        W
+      </span>
+      <div>
+        <strong>Windows</strong>
+        <span>x64</span>
+      </div>
+    </div>
+    <div class="platform">
+      <span class="os-symbol" aria-hidden="true">
+        M
+      </span>
+      <div>
+        <strong>macOS</strong>
+        <span>Apple Silicon · arm64</span>
+      </div>
+    </div>
+    <div class="platform">
+      <span class="os-symbol" aria-hidden="true">
+        L
+      </span>
+      <div>
+        <strong>Linux</strong>
+        <span>x64 / arm64</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">01 / THE REGISTRY</div>
+        <h2>
+          小小扩展，<span class="muted-word">各有所长。</span>
+        </h2>
+        <p>三个基础扩展，三种实现方式。也是你开始创作的参考。</p>
+      </div>
+      <a class="section-link" href={`${base}/extensions/`}>
+        浏览全部扩展 <span aria-hidden="true">↗</span>
+      </a>
+    </div>
+    <div class="cards">
+      {coreExtensions.map((extension, index) => (
+        <ExtensionCard extension={extension} index={index} />
+      ))}
+    </div>
+    <div class="registry-note">
+      <span class="note-symbol" aria-hidden="true">
+        i
+      </span>
+      <p>
+        {hasRegistry
+          ? '正式签名索引已部署。安装前，请按文档核对公钥根并配置可信索引。'
+          : '正在准备首次签名发布。你现在可以阅读接口、查看源码，并在本地体验完整流程。'}
+      </p>
+      <a href={`${base}/docs/#publishing`}>发布说明 ↗</a>
+    </div>
+  </section>
+
+  <section class="section wrap device-section">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">02 / DEVICES & VISION</div>
+        <h2>
+          连接设备，<span class="muted-word">先统一接口。</span>
+        </h2>
+        <p>
+          读卡器、摄像头、OCR 与串口。固定的数据结构，让业务与厂商实现分开。
+        </p>
+      </div>
+      <a class="section-link" href={`${base}/docs/#device-plugins`}>
+        设备插件指南 ↗
+      </a>
+    </div>
+    <div class="cards plugin-cards">
+      {plugins.map((extension, index) => (
+        <ExtensionCard extension={extension} index={index} />
+      ))}
+    </div>
+    <p class="security-note">
+      这四个版本均为 mock
+      模拟插件，用于本地开发与接口验证；真实设备或识别引擎需要对应的厂商 SDK /
+      原生适配器。
+    </p>
+  </section>
+
+  <section class="architecture-section">
+    <div class="architecture wrap">
+      <div class="architecture-copy">
+        <div class="eyebrow">03 / UNDER THE HOOD</div>
+        <h2>
+          实现可以不同。
+          <br />
+          好用的接口，<span class="accent-word">始终如一。</span>
+        </h2>
+        <p>
+          扩展声明能做什么、需要什么权限。
+          <br />
+          客户端验证与调度，QuickJS 执行接口，
+          <br class="desktop-break" />
+          命令行和动态库完成各自擅长的工作。
+        </p>
+        <a class="section-link" href={`${base}/docs/#architecture`}>
+          了解运行机制 <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+      <div
+        class="architecture-diagram"
+        aria-label="manifest 描述扩展，QuickJS 调用 JavaScript、命令行或动态库"
+      >
+        <div class="diagram-caption">
+          <span>ONE INTERFACE</span>
+          <span>↓ MANY POSSIBILITIES</span>
+        </div>
+        <div class="diagram-node manifest-node">
+          <span class="node-symbol" aria-hidden="true">
+            {'{ }'}
+          </span>
+          <div>
+            <strong>manifest.json</strong>
+            <span>类型 / 能力 / 平台 / 权限</span>
+          </div>
+          <span class="node-step">01</span>
+        </div>
+        <div class="diagram-connector" aria-hidden="true"></div>
+        <div class="diagram-node quickjs-node">
+          <span class="node-symbol" aria-hidden="true">
+            Q
+          </span>
+          <div>
+            <strong>QuickJS</strong>
+            <span>ES Modules · async / await</span>
+          </div>
+          <span class="node-step">02</span>
+        </div>
+        <div
+          class="diagram-connector branch-connector"
+          aria-hidden="true"
+        ></div>
+        <div class="backend-grid">
+          <div>
+            <span aria-hidden="true">{'{ }'}</span>
+            <strong>JavaScript</strong>
+            <small>纯脚本</small>
+          </div>
+          <div>
+            <span aria-hidden="true">&gt;_</span>
+            <strong>CLI</strong>
+            <small>命令行</small>
+          </div>
+          <div>
+            <span aria-hidden="true">λ</span>
+            <strong>libffi</strong>
+            <small>原生动态库</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap trust-section">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">04 / TRUST, EXPLICITLY</div>
+        <h2>每一次安装，都有据可查。</h2>
+      </div>
+      <a class="section-link" href={`${base}/docs/#publishing`}>
+        查看信任机制 ↗
+      </a>
+    </div>
+    <div class="trust-grid">
+      <div>
+        <span class="trust-number">01</span>
+        <h3>确认来源</h3>
+        <p>通过可信公钥验证 Ed25519 签名索引。</p>
+      </div>
+      <div>
+        <span class="trust-number">02</span>
+        <h3>核对内容</h3>
+        <p>使用 SHA-256 和逐文件清单检查完整性。</p>
+      </div>
+      <div>
+        <span class="trust-number">03</span>
+        <h3>明确授权</h3>
+        <p>原生执行显式授权，新增权限再次确认。</p>
+      </div>
+    </div>
+    <p class="security-note">
+      签名验证来源与完整性。原生扩展以当前用户权限执行，进程隔离不等于操作系统沙箱。
+    </p>
+  </section>
+
+  <section class="build-cta wrap">
+    <div>
+      <div class="eyebrow">MAKE SOMETHING USEFUL.</div>
+      <h2>下一个能力，由你来定义。</h2>
+      <p>从一个函数开始，把它变成每个人都能使用的扩展。</p>
+    </div>
+    <a class="button primary" href={`${base}/docs/`}>
+      开始编写 <span aria-hidden="true">↗</span>
+    </a>
+  </section>
+</Base>

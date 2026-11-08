@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "text-utils",
+  "version": "0.1.0",
+  "description": "Normalize text and line endings",
+  "type": "javascript",
+  "entry": "main.js",
+  "platforms": ["any"],
+  "permissions": [],
+  "capabilities": {
+    "normalize": {
+      "description": "normalize",
+      "export": "normalize",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": ["text"]
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": ["text"]
+      }
+    }
+  }
+}

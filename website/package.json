@@ -1,0 +1,24 @@
+{
+  "name": "foundry-website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --host 0.0.0.0",
+    "check": "astro check",
+    "build": "astro build && node scripts/check-links.mjs",
+    "preview": "astro preview --host 0.0.0.0",
+    "format": "prettier --config prettier.config.mjs --ignore-path ../.prettierignore --ignore-unknown --write ..",
+    "format:check": "prettier --config prettier.config.mjs --ignore-path ../.prettierignore --ignore-unknown --check .."
+  },
+  "dependencies": {
+    "astro": "^7.4.7"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@types/node": "^24.19.2",
+    "prettier": "3.9.10",
+    "prettier-plugin-astro": "1.1.2",
+    "typescript": "^5.9.0"
+  }
+}

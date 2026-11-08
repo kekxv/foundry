@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "foundry.ocr.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "pluginKind": {
+      "const": "ocr"
+    },
+    "mode": {
+      "enum": ["mock", "adapter"]
+    },
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "boundingBox": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "x": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "y": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": ["x", "y", "width", "height"]
+              }
+            },
+            "required": ["text", "confidence", "boundingBox"]
+          },
+          "maxItems": 256
+        }
+      },
+      "required": ["text", "language", "blocks"]
+    }
+  },
+  "required": ["schemaVersion", "pluginKind", "mode", "deviceId", "data"]
+}

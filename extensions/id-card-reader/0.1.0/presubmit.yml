@@ -1,0 +1,51 @@
+matrix:
+  platform: [linux-x64, linux-arm64, macos-arm64, windows-x64]
+tasks:
+  {
+    'devices':
+      {
+        'capability': 'devices',
+        'input': {},
+        'expect':
+          {
+            'schemaVersion': 1,
+            'pluginKind': 'id-card-reader',
+            'mode': 'mock',
+            'devices':
+              [
+                {
+                  'id': 'mock-id-card-reader-01',
+                  'name': 'Mock Identity Reader',
+                  'transport': 'mock',
+                  'status': 'ready',
+                },
+              ],
+          },
+      },
+    'read-card':
+      {
+        'capability': 'read-card',
+        'input': {},
+        'expect':
+          {
+            'schemaVersion': 1,
+            'pluginKind': 'id-card-reader',
+            'mode': 'mock',
+            'deviceId': 'mock-id-card-reader-01',
+            'data':
+              {
+                'documentType': 'cn-resident-id',
+                'name': '模拟测试人员',
+                'gender': 'unknown',
+                'ethnicity': '测试民族',
+                'birthDate': '1990-01-01',
+                'address': '测试省测试市测试区示例路1号',
+                'idNumber': '000000199001010000',
+                'issuingAuthority': '模拟签发机关',
+                'validFrom': '2020-01-01',
+                'validTo': '2030-01-01',
+                'photo': null,
+              },
+          },
+      },
+  }
