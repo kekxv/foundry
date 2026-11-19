@@ -75,7 +75,7 @@ python3 scripts/test_device_plugins.py
 
 ## 快速创建扩展
 
-在仓库根目录运行以下命令。示例假设 `foundry` 已加入 PATH，也可以使用 `./target/debug/foundry`。
+从 Foundry 仓库根目录运行以下命令，生成的扩展即可交给仓库的构建和 CI。示例假设 `foundry` 已加入 PATH，也可以使用 `./target/debug/foundry`。
 
 ```sh
 foundry new
@@ -100,6 +100,8 @@ foundry new my-command --type executable
 `new` 默认创建 `extensions/<id>/0.1.0/`，生成版本元数据、manifest、QuickJS 入口和四平台的 `presubmit.yml`。两种原生模板还附带独立的 Rust crate 和锁文件，由仓库的构建流程编译并随扩展分发成品。
 
 `--output <目录>` 可以指定扩展的父目录。已有的扩展目录会保留，命令会报错退出。原生模板可以用下文的 `scripts/test_extension.py` 构建并测试，例如在 Linux x64 上运行 `python3 scripts/test_extension.py --extension my-library --version 1.0.0 --platform linux-x64`。
+
+`foundry new` 在任意目录都可离线创建扩展。默认输出到当前目录下的 `extensions/`，也可以用 `--output` 指定相对或绝对路径。命令不初始化 Git，也不会切换或创建分支。在其他 Git 仓库或普通目录生成的纯 JS 扩展可以直接用 `foundry dev run` 试跑。需要使用中心仓库的构建和 CI 时，把生成的整个扩展目录放到 Foundry 仓库的 `extensions/` 下。
 
 客户端 CI 在四个平台上实际生成三种模板，使用仓库构建流程编译并打包，再从用临时测试密钥签名的本地索引安装 ZIP 并运行生成的测试任务。在 Linux x64 上可用 `python3 scripts/test_scaffold.py --platform linux-x64` 复现。
 

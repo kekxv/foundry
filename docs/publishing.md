@@ -2,7 +2,7 @@
 
 ## 一次性 GitHub 配置
 
-1. 推送到真实 GitHub 仓库，默认分支使用 `main`（如更名，同步修改 CI/pages 的分支过滤）。项目本地开发分支为 feat/foundry，没有自动推送或创建远程仓库。
+1. 推送到真实 GitHub 仓库，默认分支使用 `main`（如更名，同步修改 CI/pages 的分支过滤）。
 2. 保护主分支，要求 PR 审核和平台 CI；为工作流、签名工具、发布脚本、Cargo 依赖与公钥根设置维护者审核规则。
 3. 按 `trust/README.md` 离线生成生产 key，将公钥根审核后提交为 `trust/root.json`；私钥 seed 的 hex 值仅放 GitHub `release-signing` Environment 的 `FOUNDRY_SIGNING_KEY` secret；同一环境变量 `FOUNDRY_KEY_ID` 指定 key ID。
 4. 给 `release-signing` 设置 required reviewers、禁止自批并限制默认分支；`release-publishing` 也限制默认分支。环境规则需要管理员配置，YAML 无法替代这些设置。
@@ -16,7 +16,7 @@ PR 自动执行 Rust 测试、真实签名仓库测试、libffi 崩溃测试和�
 
 无密钥构建 job 为每平台生成客户端 ZIP、worker 及正式扩展；候选 job 合并索引并显示提交与 release-manifest SHA-256。维护者核对后批准 release-signing。签名 job 校验所有资产摘要、包 URL、提交及平台集合，仅签名元数据；发布 job 才拥有 Release 写权限，且没有签名私钥。30 天有效索引需要到期前发布新批次；旧版本已安装包离线运行不受索引过期影响。
 
-客户端 ZIP 附 trust-root.json 便于使用，但首次引导仍需核对独立可信的公钥指纹。Release 提供 index.json、index.json.sig、release-manifest.json、release-manifest.json.sig，以及四个平台客户端和扩展包。原生依赖 libffi 静态链接到 worker。
+客户端 ZIP 附 trust-root.json 便于使用，但首次引导仍需核对独立可信的公钥指纹。Release 提供 index.json、index.json.sig、release-manifest.json、release-manifest.json.sig，以及四个平台客户端和扩展包。原生依赖 libffi 静态链接到 worker。当前没有 `curl | sh` 安装入口。发布后可下载平台对应的客户端 ZIP，将 `foundry` 和 `foundry-worker` 解压到同一目录。
 
 ## 官网与索引
 
