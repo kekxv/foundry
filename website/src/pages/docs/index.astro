@@ -15,6 +15,7 @@ import Base from '../../layouts/Base.astro';
     <aside class="doc-nav" aria-label="开发文档目录">
       <span>DEVELOPER GUIDE</span>
       <a href="#quick-start">快速开始</a>
+      <a href="#create-extension">创建扩展</a>
       <a href="#architecture">运行机制</a>
       <a href="#javascript">JavaScript 扩展</a>
       <a href="#executable">命令行扩展</a>
@@ -40,6 +41,21 @@ python3 scripts/build_extensions.py
         Windows 将 python3 替换为 python，程序路径使用
         target/debug/foundry.exe；PowerShell
         多行续行符使用反引号。也可以直接将命令写在同一行。
+      </p>
+      <h2 id="create-extension">创建扩展</h2>
+      <p>
+        在仓库根目录运行 <code>foundry new</code> 打开交互向导，填写扩展
+        ID、类型、版本和输出父目录。带默认值的选项可直接回车。脚本可通过参数直接创建扩展。
+      </p>
+      <pre tabindex="0" is:raw>foundry new
+foundry new my-extension
+foundry dev run extensions/my-extension/0.1.0 echo --input '{"value":42}'
+foundry new my-command --type executable
+foundry new --id my-library --type native-library --version 1.0.0 --output extensions</pre>
+      <p>
+        原生模板附带独立的 Rust crate，使用仓库的
+        <code>scripts/test_extension.py</code> 构建并测试。通过
+        <code>--output</code> 可以指定扩展的父目录。
       </p>
       <h2 id="architecture">运行机制</h2>
       <p>

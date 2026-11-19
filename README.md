@@ -73,6 +73,36 @@ python3 scripts/test_device_plugins.py
 
 四个设备/识别插件当前均为 `mode: mock`，不访问真实硬件，也不运行真实 OCR 引擎。身份证数据使用明确的虚构信息和无效地区码，照片为 null。真实设备需要独立的已编译 CLI 或 libffi SDK 桥接适配器，并显式授权原生执行；本项目不附带任何厂商 SDK。详情与固定数据结构见 [插件指南](docs/plugins.md)。
 
+## 快速创建扩展
+
+在仓库根目录运行以下命令。示例假设 `foundry` 已加入 PATH，也可以使用 `./target/debug/foundry`。
+
+```sh
+foundry new
+```
+
+在终端直接运行 `foundry new` 会打开向导，依次填写扩展 ID、类型、初始版本和输出父目录。带默认值的选项可直接回车。用 `-i` 或 `--interactive` 可显式打开向导，命令行已提供的选项会跳过。
+
+自动化脚本可以一次传入全部参数。命令无需读取标准输入，成功时在标准输出返回 JSON。
+
+```sh
+foundry new --id my-library --type native-library --version 1.0.0 --output extensions
+```
+
+也可以把扩展 ID 写成位置参数，并省略使用默认值的选项。
+
+```sh
+foundry new my-extension
+foundry dev run extensions/my-extension/0.1.0 echo --input '{"value":42}'
+foundry new my-command --type executable
+```
+
+`new` 默认创建 `extensions/<id>/0.1.0/`，生成版本元数据、manifest、QuickJS 入口和四平台的 `presubmit.yml`。两种原生模板还附带独立的 Rust crate 和锁文件，由仓库的构建流程编译并随扩展分发成品。
+
+`--output <目录>` 可以指定扩展的父目录。已有的扩展目录会保留，命令会报错退出。原生模板可以用下文的 `scripts/test_extension.py` 构建并测试，例如在 Linux x64 上运行 `python3 scripts/test_extension.py --extension my-library --version 1.0.0 --platform linux-x64`。
+
+客户端 CI 在四个平台上实际生成三种模板，使用仓库构建流程编译并打包，再从用临时测试密钥签名的本地索引安装 ZIP 并运行生成的测试任务。在 Linux x64 上可用 `python3 scripts/test_scaffold.py --platform linux-x64` 复现。
+
 ## 中心仓库式扩展 CI
 
 扩展按 `extensions/<id>/<version>/` 保存。根目录的 `metadata.json` 列出所有版本及撤回原因；每个版本自带 `manifest.json`、JS 接口、原生构建源码和 `presubmit.yml`。版本号独立于客户端版本，当前支持稳定 SemVer `x.y.z`。

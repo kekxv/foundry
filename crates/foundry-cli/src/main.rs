@@ -7,8 +7,11 @@ use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
+
+mod scaffold;
+
 #[derive(Parser)]
-#[command(version, about = "Install and run signed QuickJS extensions")]
+#[command(version, about = "Create, install and run QuickJS extensions")]
 struct Cli {
     #[arg(long, env = "FOUNDRY_DATA_DIR", global = true)]
     data_dir: Option<PathBuf>,
@@ -25,6 +28,8 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Commands {
+    /// Create a new extension with a runnable example and CI tests
+    New(scaffold::NewExtension),
     Search {
         query: String,
     },
@@ -138,15 +143,24 @@ fn load_index(cli: &Cli, store: &Store) -> Result<VerifiedIndex> {
 }
 fn start() -> Result<()> {
     let cli = Cli::parse();
+    let output = match &cli.command {
+        Commands::New(args) => args.create()?,
+        command => run_command(&cli, command)?,
+    };
+    println!("{}", serde_json::to_string_pretty(&output)?);
+    Ok(())
+}
+fn run_command(cli: &Cli, command: &Commands) -> Result<Value> {
     let data = cli.data_dir.clone().unwrap_or_else(|| {
         dirs::data_local_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join("foundry")
     });
     let store = Store::new(data)?;
-    let output = match &cli.command {
+    let output = match command {
+        Commands::New(_) => unreachable!("handled without opening the store"),
         Commands::Search { query } => {
-            let index = load_index(&cli, &store)?;
+            let index = load_index(cli, &store)?;
             json!(
                 index
                     .index
@@ -157,7 +171,7 @@ fn start() -> Result<()> {
             )
         }
         Commands::Info { id } => {
-            let index = load_index(&cli, &store)?;
+            let index = load_index(cli, &store)?;
             json!(
                 index
                     .index
@@ -169,7 +183,7 @@ fn start() -> Result<()> {
         }
         Commands::List => json!(store.list()?),
         Commands::Install { id, version, grant } => {
-            install(&cli, &store, id, version.as_deref(), grant)?
+            install(cli, &store, id, version.as_deref(), grant)?
         }
         Commands::Download {
             id,
@@ -177,7 +191,7 @@ fn start() -> Result<()> {
             output,
             force,
         } => download(
-            &cli,
+            cli,
             &store,
             id,
             version.as_deref(),
@@ -193,7 +207,7 @@ fn start() -> Result<()> {
                 .grants;
             grants.extend(grant.iter().cloned());
             install(
-                &cli,
+                cli,
                 &store,
                 id,
                 None,
@@ -256,7 +270,7 @@ fn start() -> Result<()> {
                 cli.trust_root.is_none(),
                 "rotation updates the store trust-root.json, omit --trust-root"
             );
-            let old = read_root(&cli, &store)?;
+            let old = read_root(cli, &store)?;
             let bytes = std::fs::read(root)?;
             let sigs: Vec<Signature> = serde_json::from_slice(&std::fs::read(signatures)?)?;
             let new = rotate_root(&old, &bytes, &sigs, now())?;
@@ -268,8 +282,7 @@ fn start() -> Result<()> {
             json!({"rootVersion":new.version})
         }
     };
-    println!("{}", serde_json::to_string_pretty(&output)?);
-    Ok(())
+    Ok(output)
 }
 fn install(
     cli: &Cli,

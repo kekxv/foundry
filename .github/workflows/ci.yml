@@ -51,6 +51,8 @@ jobs:
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
       - run: cargo build --workspace --locked
+      - name: Generate, package and run all extension templates
+        run: python scripts/test_scaffold.py --platform "${{ matrix.platform }}"
       - run: python scripts/test_device_plugins.py
       - run: python scripts/test_distribution.py
       - run: python scripts/test_native_isolation.py
