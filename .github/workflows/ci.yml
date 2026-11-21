@@ -22,11 +22,37 @@ jobs:
         with: {node-version: '24.18.0'}
       - run: python -m pip install -r requirements-dev.txt
       - run: python scripts/test_site_registry.py
+      - run: python scripts/test_malware_scan.py
       - run: npm ci --prefix website
       - run: rustup show
       - run: python scripts/format_code.py --check
+  pr-packages:
+    name: Select changed extension packages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    outputs:
+      packages: ${{ steps.select.outputs.packages }}
+      has_changes: ${{ steps.select.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: {path: candidate, fetch-depth: 0, persist-credentials: false}
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install -r trusted/requirements-ci.txt
+      - id: select
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python trusted/scripts/extension_matrix.py --root candidate --base "$BASE_SHA" --package-only
   rust:
     name: Client and distribution / ${{ matrix.platform }}
+    needs: pr-packages
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.pr-packages.result == 'success') }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -87,10 +113,13 @@ jobs:
       - run: python scripts/test_host_files.py
       - run: python scripts/test_release_pipeline.py
       - name: PR candidate digests (unsigned preview only)
-        if: github.event_name == 'pull_request'
-        run: python scripts/build_extensions.py --out dist/pr-candidate --retain-external-for-scan
+        if: needs.pr-packages.outputs.has_changes == 'true'
+        shell: bash
+        env:
+          PACKAGES: ${{ needs.pr-packages.outputs.packages }}
+        run: python scripts/build_extensions.py --out dist/pr-candidate --retain-external-for-scan --selection "$PACKAGES"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: github.event_name == 'pull_request'
+        if: needs.pr-packages.outputs.has_changes == 'true'
         with:
           name: pr-candidate-${{ matrix.platform }}-${{ github.sha }}
           path: |
@@ -102,39 +131,56 @@ jobs:
   malware-scan:
     name: PR malware scan
     if: always() && github.event_name == 'pull_request'
-    needs: rust
+    needs: [pr-packages, rust]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - name: Require a successful candidate build
+      - name: Require a successful package plan and candidate build
         env:
+          PLAN_RESULT: ${{ needs.pr-packages.result }}
+          HAS_CHANGES: ${{ needs.pr-packages.outputs.has_changes }}
           BUILD_RESULT: ${{ needs.rust.result }}
-        run: test "$BUILD_RESULT" = success
+        run: |
+          test "$PLAN_RESULT" = success
+          case "$HAS_CHANGES" in
+            true) test "$BUILD_RESULT" = success ;;
+            false) echo "No changed extension packages to scan." >> "$GITHUB_STEP_SUMMARY" ;;
+            *) exit 1 ;;
+          esac
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        if: needs.pr-packages.outputs.has_changes == 'true'
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
           path: trusted
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        if: needs.pr-packages.outputs.has_changes == 'true'
         with:
           persist-credentials: false
           path: candidate
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: needs.pr-packages.outputs.has_changes == 'true'
         with:
           pattern: pr-candidate-*-${{ github.sha }}
           path: ${{ runner.temp }}/foundry-scan
       - uses: ./trusted/.github/actions/setup-clamav
+        if: needs.pr-packages.outputs.has_changes == 'true'
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        if: needs.pr-packages.outputs.has_changes == 'true'
         with: {python-version: '3.12'}
       - run: python -m pip install -r trusted/requirements-ci.txt
+        if: needs.pr-packages.outputs.has_changes == 'true'
       - name: Verify archive detection and scan failure handling
+        if: needs.pr-packages.outputs.has_changes == 'true'
         run: |
           python trusted/scripts/test_malware_scan.py
           python trusted/scripts/test_malware_scan.py --with-clamav
       - name: Scan extension ZIPs with ClamAV
+        if: needs.pr-packages.outputs.has_changes == 'true'
         env:
           SCAN_DIR: ${{ runner.temp }}/foundry-scan
-        run: python trusted/scripts/malware_scan.py --artifacts "$SCAN_DIR" --commit "$GITHUB_SHA" --registry candidate
+          PACKAGES: ${{ needs.pr-packages.outputs.packages }}
+        run: python trusted/scripts/malware_scan.py --artifacts "$SCAN_DIR" --commit "$GITHUB_SHA" --registry candidate --selection "$PACKAGES"
   website:
     runs-on: ubuntu-22.04
     steps:

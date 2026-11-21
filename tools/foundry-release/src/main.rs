@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, ensure};
 use clap::{Parser, Subcommand};
-use ed25519_dalek::{Signer, SigningKey};
+use ed25519_dalek::pkcs8::{DecodePrivateKey, DecodePublicKey};
+use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 use foundry_store::*;
 use std::{collections::BTreeSet, path::PathBuf};
 
@@ -84,6 +85,15 @@ enum Commands {
         #[arg(long)]
         root_output: PathBuf,
         #[arg(long)]
+        key_id: String,
+    },
+    /// Create a Foundry trust root from an Ed25519 PEM public key
+    TrustRoot {
+        #[arg(long)]
+        public_key: PathBuf,
+        #[arg(long, default_value = "trust/root.json")]
+        output: PathBuf,
+        #[arg(long, default_value = "foundry-production")]
         key_id: String,
     },
 }
@@ -268,14 +278,35 @@ fn run() -> Result<()> {
             let mut file = options.open(private_output)?;
             use std::io::Write;
             file.write_all(hex::encode(seed).as_bytes())?;
-            let mut root = TrustRoot::single(&key_id, &hex::encode(key.verifying_key().as_bytes()));
-            root.expires_at = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)?
-                .as_secs()
-                + 365 * 86400;
-            std::fs::write(root_output, serde_json::to_vec_pretty(&root)?)?;
+            write_trust_root(&key_id, &key.verifying_key(), &root_output)?;
+        }
+        Commands::TrustRoot {
+            public_key,
+            output,
+            key_id,
+        } => {
+            let pem = std::fs::read_to_string(public_key).context("read Ed25519 public key")?;
+            let key = VerifyingKey::from_public_key_pem(pem.trim())
+                .context("expected an Ed25519 public key in PEM format")?;
+            write_trust_root(&key_id, &key, &output)?;
         }
     }
+    Ok(())
+}
+
+fn write_trust_root(key_id: &str, key: &VerifyingKey, output: &std::path::Path) -> Result<()> {
+    let mut root = TrustRoot::single(key_id, &hex::encode(key.as_bytes()));
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs();
+    root.expires_at = now + 365 * 86400;
+    root.validate(now)?;
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output)
+        .context("create trust root")?;
+    serde_json::to_writer_pretty(file, &root)?;
     Ok(())
 }
 
@@ -315,7 +346,12 @@ fn stage_external(
 
 fn signing_key() -> Result<SigningKey> {
     let key = std::env::var("FOUNDRY_SIGNING_KEY")
-        .context("FOUNDRY_SIGNING_KEY must contain a 32-byte hex seed")?;
+        .context("FOUNDRY_SIGNING_KEY must contain an Ed25519 private key")?;
+    let key = key.trim();
+    if key.starts_with("-----BEGIN ") {
+        return SigningKey::from_pkcs8_pem(key)
+            .map_err(|_| anyhow::anyhow!("invalid Ed25519 PKCS#8 private key"));
+    }
     let seed: [u8; 32] = hex::decode(key)
         .map_err(|_| anyhow::anyhow!("invalid signing key encoding"))?
         .try_into()

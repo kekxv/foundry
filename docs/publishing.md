@@ -4,7 +4,7 @@
 
 1. 推送到真实 GitHub 仓库，默认分支使用 `main`（如更名，同步修改 CI/pages 的分支过滤）。
 2. 保护主分支，要求 PR 审核和平台 CI；为工作流、签名工具、发布脚本、Cargo 依赖与公钥根设置维护者审核规则。
-3. 按 `trust/README.md` 离线生成生产 key，将公钥根审核后提交为 `trust/root.json`；私钥 seed 的 hex 值仅放 GitHub `release-signing` Environment 的 `FOUNDRY_SIGNING_KEY` secret；同一环境变量 `FOUNDRY_KEY_ID` 指定 key ID。
+3. 按 [信任根配置](../trust/README.md) 生成 Ed25519 密钥。将公开的 `trust/root.json` 审核后提交。GitHub 的 `release-signing` 环境使用 `FOUNDRY_SIGNING_KEY` secret 保存私钥 PEM 或旧格式的十六进制 seed，使用 `FOUNDRY_KEY_ID` 变量保存对应的 key ID。
 4. 给 `release-signing` 设置 required reviewers、禁止自批并限制默认分支；`release-publishing` 也限制默认分支。环境规则需要管理员配置，YAML 无法替代这些设置。
 5. GitHub Pages 的 Source 设为 Deploy from a branch，选择 gh-pages / root。仓库允许 Actions 对部署 job 使用 contents:write。
 
@@ -12,7 +12,7 @@
 
 PR 自动执行 Rust 测试、真实签名仓库测试、libffi 崩溃测试和网站构建，并上传按平台生成的未签名候选包与摘要预览。PR 预览不会进入受保护签名步骤，正式发布必须重新核对合并提交。矩阵为 Windows 2022 x64、macOS 15 ARM64、Ubuntu 22.04 x64、Ubuntu 24.04 ARM64；托管 runner 的可用性受 GitHub 仓库类型/配额影响。没有对应 runner 结果时不能声称该平台已验证。
 
-PR 的 **PR malware scan** 检查由独立 Linux runner 运行 ClamAV。它扫描四个平台的扩展候选 ZIP，包括按固定 SHA-256 下载的第三方 ZIP。候选文件缺失、哈希不匹配、发现威胁或扫描出错都会使检查失败。完整日志可在对应的 Actions 任务中查看。仓库管理员可将该检查设为合并所需的状态检查。
+PR 的候选打包和 **PR malware scan** 共用基于 PR 文件差异生成的扩展列表。只改文档或共享代码时跳过候选打包与扫描。ClamAV 在独立 Linux runner 上扫描四个平台的变更扩展 ZIP，包括按固定 SHA-256 下载的第三方 ZIP。候选文件缺失、哈希不匹配、发现威胁或扫描出错都会使检查失败。完整日志可在对应的 Actions 任务中查看。仓库管理员可将该检查设为合并所需的状态检查。
 
 扫描器及其安装步骤从 PR 的基准提交加载，候选注册表只作为数据读取。首次启用时先将扫描器合入基准分支，再启用必需检查。该检查在四平台候选包构建后运行。修改 CI 工作流仍需审核。
 

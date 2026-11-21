@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -221,6 +222,20 @@ class DiffTests(unittest.TestCase):
         self.commit()
         self.assertIn('No extension',
                       render_markdown(generate_report(self.root, self.base)))
+
+    def test_pr_packages_include_new_versions_and_skip_existing_packages(self):
+        self.add_version('2.0.0')
+        self.write('crates/new.rs', '// shared change')
+        self.commit()
+        tool = Path(__file__).resolve().with_name('extension_matrix.py')
+        result = subprocess.check_output([
+            sys.executable,
+            str(tool), '--root',
+            str(self.root), '--base', self.base, '--package-only'
+        ],
+                                         text=True,
+                                         timeout=30)
+        self.assertEqual(json.loads(result), [['demo', '2.0.0']])
 
 
 class WorkflowGateTests(unittest.TestCase):

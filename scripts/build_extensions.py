@@ -90,6 +90,9 @@ def main():
     p.add_argument('--base-url')
     p.add_argument('--extension')
     p.add_argument('--version')
+    p.add_argument('--selection',
+                   type=json.loads,
+                   help='JSON list of extension ID and version pairs')
     p.add_argument('--retain-external-for-scan', action='store_true')
     p.add_argument(
         '--previous-index',
@@ -99,6 +102,8 @@ def main():
     a = p.parse_args()
     if a.version and not a.extension:
         p.error('--version requires --extension')
+    if a.selection is not None and a.extension:
+        p.error('--selection cannot be combined with --extension')
     registry = Registry(ROOT)
     target = host_platform()
     suffix = '.exe' if os.name == 'nt' else ''
@@ -121,6 +126,8 @@ def main():
     for id in [a.extension] if a.extension else registry.names():
         versions = [a.version] if a.version else registry.versions(id)
         for version in versions:
+            if a.selection is not None and [id, version] not in a.selection:
+                continue
             source = registry.source(id, version)
             m = registry.manifest(id, version)
             c = registry.config(id, version)

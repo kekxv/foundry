@@ -12,7 +12,7 @@ sha2.workspace = true
 semver = "1"
 serde_json.workspace = true
 clap = { version = "4", features = ["derive", "env"] }
-ed25519-dalek = { version = "2", features = ["rand_core"] }
+ed25519-dalek = { version = "2", features = ["rand_core", "pem"] }
 hex.workspace = true
 getrandom = "0.3"
 tempfile = "3"
