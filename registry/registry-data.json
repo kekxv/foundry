@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "index": null,
+  "extensions": [
+    {
+      "id": "camera",
+      "versions": [
+        "0.1.0"
+      ],
+      "yanked_versions": {},
+      "maintainers": []
+    },
+    {
+      "id": "file-digest",
+      "versions": [
+        "0.1.0"
+      ],
+      "yanked_versions": {},
+      "maintainers": []
+    },
+    {
+      "id": "id-card-reader",
+      "versions": [
+        "0.1.0"
+      ],
+      "yanked_versions": {},
+      "maintainers": []
+    },
+    {
+      "id": "native-math",
+      "versions": [
+        "0.1.0"
+      ],
+      "yanked_versions": {},
+      "maintainers": []
+    },
+    {
+      "id": "ocr",
+      "versions": [
+        "0.1.0"
+      ],
+      "yanked_versions": {},
+      "maintainers": []
+    },
+    {
+      "id": "serial-port",
+      "versions": [
+        "0.1.0"
+      ],
+      "yanked_versions": {},
+      "maintainers": []
+    },
+    {
+      "id": "text-utils",
+      "versions": [
+        "0.1.0"
+      ],
+      "yanked_versions": {},
+      "maintainers": []
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "file-digest",
+  "version": "0.1.0",
+  "description": "Compute the SHA-256 digest of a file",
+  "type": "executable",
+  "entry": "main.js",
+  "platforms": ["windows-x64", "macos-arm64", "linux-x64", "linux-arm64"],
+  "permissions": ["process.spawn"],
+  "capabilities": {
+    "digest": {
+      "description": "digest",
+      "export": "digest",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": ["path"]
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": ["sha256"]
+      }
+    }
+  },
+  "executables": {
+    "digest": {
+      "windows-x64": "bin/file-digest.exe",
+      "macos-arm64": "bin/file-digest",
+      "linux-x64": "bin/file-digest",
+      "linux-arm64": "bin/file-digest"
+    }
+  }
+}

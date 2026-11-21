@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "id": "serial-port",
+  "version": "0.1.0",
+  "description": "串口插件：模拟设备枚举与 UTF-8 请求响应",
+  "type": "javascript",
+  "entry": "main.js",
+  "platforms": ["any"],
+  "permissions": [],
+  "plugin": {
+    "kind": "serial",
+    "mode": "mock",
+    "transport": "mock",
+    "contract": "foundry.serial.v1"
+  },
+  "capabilities": {
+    "devices": {
+      "description": "枚举当前插件提供的模拟设备",
+      "export": "devices",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {},
+        "required": []
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "pluginKind": {
+            "const": "serial"
+          },
+          "mode": {
+            "enum": ["mock", "adapter"]
+          },
+          "devices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "transport": {
+                  "enum": [
+                    "mock",
+                    "usb",
+                    "serial",
+                    "hid",
+                    "network",
+                    "system",
+                    "sdk"
+                  ]
+                },
+                "status": {
+                  "enum": ["ready", "unavailable"]
+                }
+              },
+              "required": ["id", "name", "transport", "status"]
+            },
+            "maxItems": 256
+          }
+        },
+        "required": ["schemaVersion", "pluginKind", "mode", "devices"]
+      }
+    },
+    "exchange": {
+      "description": "串口插件：模拟设备枚举与 UTF-8 请求响应",
+      "export": "exchange",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": ["message"]
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "foundry.serial.v1",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "pluginKind": {
+            "const": "serial"
+          },
+          "mode": {
+            "enum": ["mock", "adapter"]
+          },
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "request": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "response": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "encoding": {
+                "const": "utf8"
+              }
+            },
+            "required": ["request", "response", "encoding"]
+          }
+        },
+        "required": ["schemaVersion", "pluginKind", "mode", "deviceId", "data"]
+      }
+    }
+  }
+}
