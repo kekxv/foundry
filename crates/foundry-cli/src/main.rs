@@ -108,14 +108,23 @@ fn now() -> u64 {
         .as_secs()
 }
 fn read_root(cli: &Cli, store: &Store) -> Result<TrustRoot> {
-    let p = cli
-        .trust_root
-        .clone()
-        .unwrap_or_else(|| store.root.join("trust-root.json"));
-    let root = serde_json::from_value(foundry_core::parse_unique_json(
-        &std::fs::read(p).context("configure --trust-root from a trusted source")?,
-    )?)?;
-    Ok(root)
+    let bytes = if let Some(path) = &cli.trust_root {
+        std::fs::read(path).context("read explicit --trust-root")?
+    } else {
+        match std::fs::read(store.root.join("trust-root.json")) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                option_env!("FOUNDRY_TRUST_ROOT")
+                    .context("configure --trust-root from a trusted source")?
+                    .as_bytes()
+                    .to_vec()
+            }
+            Err(error) => return Err(error).context("read stored trust-root.json"),
+        }
+    };
+    Ok(serde_json::from_value(foundry_core::parse_unique_json(
+        &bytes,
+    )?)?)
 }
 fn load_index(cli: &Cli, store: &Store) -> Result<VerifiedIndex> {
     let source = cli
@@ -123,7 +132,10 @@ fn load_index(cli: &Cli, store: &Store) -> Result<VerifiedIndex> {
         .as_deref()
         .or(option_env!("FOUNDRY_INDEX_URL"))
         .context("configure --index <HTTPS URL or signed local index>")?;
-    let bytes = fetch(source, 16 * 1024 * 1024)?;
+    let root = read_root(cli, store)?;
+    let bytes = fetch(source, 16 * 1024 * 1024).with_context(|| {
+        format!("read signed registry index at {source}; check that a signed release is published")
+    })?;
     let signature_bytes = fetch(&format!("{source}.sig"), 65536)?;
     let v = foundry_core::parse_unique_json(&signature_bytes)?;
     let sigs: Vec<Signature> = if v.is_array() {
@@ -131,13 +143,7 @@ fn load_index(cli: &Cli, store: &Store) -> Result<VerifiedIndex> {
     } else {
         vec![serde_json::from_value(v)?]
     };
-    let index = verify_index_signatures(
-        &bytes,
-        &sigs,
-        &read_root(cli, store)?,
-        store.sequence()?,
-        now(),
-    )?;
+    let index = verify_index_signatures(&bytes, &sigs, &root, store.sequence()?, now())?;
     store.remember_index(&index)?;
     Ok(index)
 }

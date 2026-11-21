@@ -229,6 +229,7 @@ class RegistryTests(unittest.TestCase):
         env = safe_environment({
             'PATH': '/bin',
             'HOME': '/tmp',
+            'CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER': r'C:\VS\link.exe',
             'FOUNDRY_SIGNING_KEY': 'private',
             'GH_TOKEN': 'private',
             'GITHUB_TOKEN': 'private',
@@ -236,6 +237,8 @@ class RegistryTests(unittest.TestCase):
             'AWS_SECRET_ACCESS_KEY': 'private'
         })
         self.assertEqual(env['PATH'], '/bin')
+        self.assertEqual(env['CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER'],
+                         r'C:\VS\link.exe')
         self.assertNotIn('private', env.values())
 
     def test_change_detection_metadata_shared_and_deletion(self):

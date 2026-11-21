@@ -8,13 +8,15 @@ import subprocess
 import sys
 import zipfile
 
+from publish_catalogue import package_base_url
+
 ROOT = Path(__file__).resolve().parents[1]
 version = os.environ['VERSION']
 platform = os.environ['PLATFORM']
 repository = os.environ['RELEASE_REPOSITORY']
 out = ROOT / 'dist/release'
 out.mkdir(parents=True, exist_ok=True)
-base = f'https://github.com/{repository}/releases/download/v{version}'
+base = package_base_url(repository)
 command = [
     sys.executable,
     str(ROOT / 'scripts/build_extensions.py'), '--out',

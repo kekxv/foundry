@@ -3,8 +3,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from urllib.parse import unquote
-from urllib.parse import urlparse
 
 root = Path('dist/approved')
 path = root / 'release-manifest.json'
@@ -26,6 +24,8 @@ for name, record in m['assets'].items():
 index = json.loads((root / 'index.json').read_text())
 assert index['sequence'] == m['sequence'] and index['sourceCommit'] == m[
     'sourceCommit'], 'Wrong index binding'
+from pages_registry import MAX_GIT_FILE_BYTES
+from publish_catalogue import package_base_url
 from registry import MAX_PACKAGE_BYTES
 from registry import published_packages
 from registry import Registry
@@ -71,13 +71,12 @@ for p in ledger:
         continue
     if key in external:
         continue
-    u = urlparse(p['url'])
-    assert u.scheme == 'https' and u.netloc == 'github.com', 'Untrusted asset origin'
-    prefix = f'/{os.environ["GITHUB_REPOSITORY"]}/releases/download/v{m["version"]}/'
-    assert u.path.startswith(
-        prefix) and not u.query and not u.fragment, 'Wrong release URL'
-    name = unquote(u.path[len(prefix):])
-    assert '/' not in name and name in m['assets'], 'Missing release asset'
+    name = f'{p["id"]}-{p["version"]}-{p["platform"]}.zip'
+    assert p[
+        'url'] == f'{package_base_url(os.environ["GITHUB_REPOSITORY"])}/{name}', 'Wrong Pages package URL'
+    assert name in m['assets'], 'Missing Pages package asset'
+    assert p[
+        'size'] <= MAX_GIT_FILE_BYTES, 'Pages package exceeds the Git file limit'
     assert m['assets'][name] == {
         'size': p['size'],
         'sha256': p['sha256']

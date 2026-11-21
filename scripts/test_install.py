@@ -32,6 +32,7 @@ class QuietHandler(SimpleHTTPRequestHandler):
             self.send_header(
                 'Location',
                 self.path.replace(latest, f'/releases/download/v{VERSION}/', 1))
+            self.send_header('Content-Length', '0')
             self.end_headers()
         else:
             super().do_GET()

@@ -22,7 +22,7 @@ ClamAV 病毒库按 UTC 日期缓存。当天命中时直接使用，跨天时�
 
 无密钥构建 job 为每平台生成客户端 ZIP、worker 及正式扩展；候选 job 合并索引并显示提交与 release-manifest SHA-256。维护者核对后批准 release-signing。签名 job 校验所有资产摘要、包 URL、提交及平台集合，仅签名元数据；发布 job 才拥有 Release 写权限，且没有签名私钥。30 天有效索引需要到期前发布新批次；旧版本已安装包离线运行不受索引过期影响。
 
-客户端 ZIP 附 trust-root.json 便于使用，但首次引导仍需核对独立可信的公钥指纹。Release 提供 index.json、index.json.sig、release-manifest.json、release-manifest.json.sig，以及四个平台客户端和扩展包。原生依赖 libffi 静态链接到 worker。
+客户端 ZIP 附 `trust-root.json`。首次引导时通过独立可信渠道核对公钥指纹。GitHub Release 提供四个平台的客户端 ZIP、安装签名和发布清单。原生依赖 libffi 静态链接到 worker。
 
 ## 客户端安装脚本
 
@@ -30,15 +30,17 @@ Pages 构建会在站点根目录生成 `install.sh` 和 `install.ps1`，并配�
 
 受保护的签名 job 用当前 Ed25519 发布密钥，从已批准的 Release 清单生成 `install-manifest.txt`、OpenSSH 格式的签名和公开的 `allowed_signers`。安装签名采用独立的 `foundry-install-v1` 命名空间，沿用当前的单签信任根。通过独立可信渠道确认完整的 `allowed_signers` 文件，包括第一行记录的信任有效期。轮换密钥时重新确认此文件。签名扩展使用 JSON 公钥根和签名索引。
 
-默认安装到 Linux 和 macOS 的 `~/.local/share/foundry/clients/<版本>/`，或 Windows 的 `%LOCALAPPDATA%\foundry\clients\<版本>\`。可用 `--install-dir` 或 `-InstallDir` 指定新的安装目录。脚本把两个可执行文件放在一起，已有目录会保留。使用签名扩展时仍需配置索引和公钥根。
+默认安装到 Linux 和 macOS 的 `~/.local/share/foundry/clients/<版本>/`，或 Windows 的 `%LOCALAPPDATA%\foundry\clients\<版本>\`。可用 `--install-dir` 或 `-InstallDir` 指定新的安装目录。脚本把两个可执行文件放在一起，已有目录会保留。
 
 在本地网站构建中，可用 `FOUNDRY_REPOSITORY=OWNER/REPO npm run build --prefix website` 生成带仓库配置的安装脚本。用户也可通过 `--repo` 或 `-Repository` 显式指定仓库，或者通过 `--release-base-url` 或 `-ReleaseBaseUrl` 指定兼容 GitHub Release URL 布局的 HTTPS 镜像。
 
 ## 官网与索引
 
-主分支更新自动构建 Astro 并推送 gh-pages。有生产根时，网站构建从最新正式 Release 下载并验证原始索引，再将它原样复制到 `registry/`，与页面一起部署；不会由页面代码重新序列化。校验失败会阻止部署，避免发布篡改索引。尚无生产根或 Release 时只发布文档并显示未发布状态。
+主分支更新自动构建 Astro 并推送 gh-pages。每次部署都会生成 `registry/registry-data.json`，包括扩展列表和版本。各扩展的 `metadata.json`、各版本的 `manifest.json` 及第三方包声明位于 `registry/extensions/<id>/` 下。目录的 `index` 字段为 `null` 时，表示还没有签名安装索引可用。
 
-发布完成调用同一 Pages 工作流。项目仓库自动使用 `/<repo>/` base，用户主页仓库使用 `/`。可用 `FOUNDRY_SITE`、`FOUNDRY_BASE` 在本地构建时覆盖。客户端索引地址最终是 `https://<owner>.github.io/<repo>/registry/index.json`。
+正式发布流程将已签名的 `index.json`、`index.json.sig`、公钥根 `root.json` 和仓库构建的扩展 ZIP 直接写入 `gh-pages`。自建 ZIP 位于 `registry/packages/`，单文件最多 100 MiB。第三方 ZIP 由原 HTTPS 地址提供，单文件最多 250 MiB。普通的主分支推送重新生成展示目录，并从 `gh-pages` 保留已发布的签名文件与 ZIP。
+
+正式发布的客户端默认读取 `https://<owner>.github.io/<repo>/registry/index.json`，并使用构建时内置的生产公钥根验证签名。用户可通过 `--index` 或 `FOUNDRY_INDEX` 指定镜像，通过 `--trust-root` 指定公钥根。保存在客户端数据目录的 `trust-root.json` 优先于内置根，以便支持密钥轮换。用户主页仓库的索引路径省略 `/<repo>`。
 
 ## 本地验证（只用临时测试密钥）
 
@@ -64,7 +66,7 @@ python3 scripts/build_extensions.py --out dist
 
 ## 历史版本发布
 
-版本目录及独立测试配置见 [registry.md](registry.md)。发布前获取上一份正式索引并验证签名、递增序号；已验证历史索引以 SHA-256 绑定到构建、组装和签名任务。原有 `(id, version, platform)` 条目复用原始 URL 和摘要，只构建尚未发布的版本/平台。索引保留全部未撤回历史版本，因此旧 Release 资产不能删除。
+版本目录及独立测试配置见 [registry.md](registry.md)。发布前从 `gh-pages` 读取上一份正式索引，验证签名和递增序号，并将历史索引的 SHA-256 绑定到构建、组装和签名任务。原有 `(id, version, platform)` 条目复用原始 URL 和摘要，只构建尚未发布的版本或平台。索引保留全部未撤回历史版本，原始下载地址需持续可用。发布中断后，在 Actions 重跑失败的任务可继续发布。同一份签名产物可以重试写入 Pages。
 
 扩展版本独立于客户端版本；目前正式流水线仍在一次新客户端 Release 中发布本批扩展和更新索引，触发参数 `version` 是客户端版本，不会要求所有扩展使用同一版本号。撤回版本也需要完成一次签名索引发布才会对客户端生效。
 

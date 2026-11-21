@@ -194,13 +194,12 @@ foundry get native-math --version 0.1.0 --output native-math.zip</pre>
         job 中可用，PR 构建拿不到私钥。
       </p>
       <p>
-        安装前从项目可信来源获取公钥根文件，使用 --trust-root 指定；使用 --index
-        指定 HTTPS 索引或显式本地签名索引。客户端验证 Ed25519
-        签名、索引序号和有效期、ZIP
-        哈希及逐文件清单。当前未配置生产仓库和密钥，正式下载暂未开放。
+        正式发布的客户端默认读取 Pages 上的签名索引。使用
+        <code>--index</code> 和 <code>--trust-root</code> 可指定镜像及其公钥根。
+        客户端验证 Ed25519 签名、索引序号和有效期、ZIP 哈希及逐文件清单。
       </p>
       <pre tabindex="0" is:raw>foundry --trust-root ./trust-root.json \
-  --index https://YOUR-TRUSTED-HOST/index.json install text-utils</pre>
+  --index https://YOUR-TRUSTED-HOST/registry/index.json install text-utils</pre>
       <p>
         详细格式、安全边界及管理员发布步骤见仓库
         docs/extension-format.md、docs/ffi.md、docs/security.md 和

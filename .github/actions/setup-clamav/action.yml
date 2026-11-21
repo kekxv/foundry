@@ -29,10 +29,16 @@ runs:
       env:
         DATABASE: ${{ steps.database.outputs.path }}
       run: |
-        config=$(mktemp "$RUNNER_TEMP/foundry-freshclam.XXXXXXXX")
-        trap 'rm -f "$config"' EXIT
-        printf 'DatabaseDirectory %s\nDatabaseMirror database.clamav.net\n' "$DATABASE" > "$config"
-        freshclam --config-file="$config"
+        # Use the packaged configuration and database directory allowed by AppArmor.
+        shopt -s nullglob
+        restored=("$DATABASE/"*.cvd "$DATABASE/"*.cld)
+        if (( ${#restored[@]} )); then
+          sudo install -o clamav -g clamav -m 0644 -t /var/lib/clamav "${restored[@]}"
+        fi
+        sudo freshclam
+        updated=(/var/lib/clamav/*.cvd /var/lib/clamav/*.cld)
+        rm -f "$DATABASE/"*.cvd "$DATABASE/"*.cld
+        cp "${updated[@]}" "$DATABASE/"
     - name: Check and export the virus database
       shell: bash
       env:

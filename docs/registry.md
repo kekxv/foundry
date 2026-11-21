@@ -43,7 +43,7 @@ python3 scripts/build_extensions.py --extension native-math --version 0.1.0 --ou
 
 版本产物暂存于 `dist/versions/<id>/<version>/`；`dist/dev/<id>/` 是本次构建的最新可用版本的开发便捷副本。包只包含 manifest、JS 和已编译产物，native 源码和 presubmit 不进入包。
 
-新增版本时复制上一版本目录、修改 manifest.version、更新根 metadata.versions，并运行该版本 presubmit。PR CI 从基准提交加载可信规划器，只测试改动版本；修改共享运行时、打包工具或工作流则测试所有版本。根元数据变化测试对应扩展的全部版本，包括已撤回版本。手动工作流可用 extension/version 指定测试对象。不受信任的配置不能选择 self-hosted runner。
+新增版本时复制上一版本目录、修改 manifest.version、更新根 metadata.versions，并运行该版本 presubmit。PR CI 从基准提交加载可信规划器，只测试改动版本；修改共享运行时、打包工具或工作流则测试所有版本。根元数据变化测试对应扩展的全部版本，包括已撤回版本。扩展测试工作流仅在 PR 上运行。可用本页命令在本地指定扩展和版本。不受信任的配置不能选择 self-hosted runner。
 
 版本目录一旦存在于基准提交便不能原地修改，连测试配置也保持不可变。修复旧版代码或测试应新增版本，撤回原因只改根元数据。维护者必须审核 metadata 与工作流变更；maintainers 字段目前记录联系人，不授予自动合并或签名权限。
 
@@ -59,9 +59,9 @@ any:
 
 用 `foundry-release pack` 生成 ZIP 和对应的 SHA-256 与字节数。ZIP 包内的 `manifest.json` 必须与仓库声明一致。使用外部 ZIP 时，`presubmit.yml` 保留平台和测试任务，省略 `build`。各平台 CI 使用 Foundry 的下载和校验代码，核对大小、SHA-256、文件清单及 manifest 后运行测试。
 
-扩展 ZIP 下载上限为 250 MiB（262144000 字节）。下载第三方 ZIP 前，CI 用 `curl --head` 获取最终 HTTPS 地址的 `Content-Length`，并据此限制下载。下载后严格核对字节数和 SHA-256。配置中的 `size` 可省略，填写时仅作字节数参考。旧版 `packages.json` 仍可读取，每个版本只使用一种格式。
+GitHub Pages 托管的自建扩展 ZIP 单文件最多 100 MiB。第三方 ZIP 的下载上限为 250 MiB（262144000 字节）。下载第三方 ZIP 前，CI 用 `curl --head` 获取最终 HTTPS 地址的 `Content-Length`，并据此限制下载。下载后严格核对字节数和 SHA-256。配置中的 `size` 可省略，填写时仅作字节数参考。旧版 `packages.json` 仍可读取，每个版本只使用一种格式。
 
-正式发布把 URL、SHA-256 和大小写入签名索引。客户端按原有的 `foundry download <id>` 或 `foundry install <id>` 直接从该地址下载，并再次核对索引中的值。仓库和本项目的 GitHub Release 都只需保存引用元数据。URL、大小或摘要变化时，请发布新的扩展版本。
+正式发布把 URL、SHA-256 和大小写入 GitHub Pages 的签名索引。客户端执行 `foundry download <id>` 或 `foundry install <id>` 时直接从配置的 HTTPS 地址下载，并按索引核对包的大小和摘要。URL、大小或摘要变化时，请发布新的扩展版本。
 
 签名索引的 `withdrawnPackages` 保留已撤回包的原始记录，客户端只从 `packages` 选择安装。撤回后恢复发布会复用原来的包及 URL，不允许借撤回重写历史二进制。
 

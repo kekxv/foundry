@@ -8,6 +8,9 @@ import subprocess
 import tempfile
 import tomllib
 
+from pages_registry import checkout_pages
+from pages_registry import FILES
+
 version = os.environ['VERSION']
 sequence = os.environ['SEQUENCE']
 assert re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',
@@ -17,36 +20,51 @@ assert tomllib.loads(Path('Cargo.toml').read_text(
 ))['workspace']['package']['version'] == version, 'Client version mismatch'
 assert Path('trust/root.json').is_file(
 ), 'Configure production trust/root.json before publishing'
-# Authentication, permission and transport errors must not be mistaken for an empty registry.
-listing = subprocess.run(
-    ['gh', 'api', f'repos/{os.environ["GH_REPO"]}/releases?per_page=100'],
-    capture_output=True,
-    text=True,
-    check=True)
-releases = json.loads(listing.stdout)
-assert all(
-    r['tag_name'] != 'v' + version for r in releases), 'Version already exists'
-published = [r for r in releases if not r['draft'] and not r['prerelease']]
+releases = subprocess.check_output([
+    'gh', 'api', '--paginate', '--jq',
+    '.[] | {tag_name, published: (.draft == false and .prerelease == false)}',
+    f'repos/{os.environ["GH_REPO"]}/releases'
+],
+                                   text=True)
+releases = [json.loads(line) for line in releases.splitlines()]
+if any(release['tag_name'] == f'v{version}' for release in releases):
+    raise ValueError('Client release version already exists')
+if subprocess.check_output(
+    ['git', 'ls-remote', '--tags', 'origin', f'refs/tags/v{version}']):
+    raise ValueError('Client release tag already exists')
 history = Path('dist/history')
 history.mkdir(parents=True, exist_ok=True)
 old = {'packages': []}
-if published:
-    with tempfile.TemporaryDirectory() as d:
-        tag = published[0]['tag_name']
+with tempfile.TemporaryDirectory(prefix='foundry-pages-history-') as d:
+    deployed = checkout_pages(Path(d))
+    existing = {name for name in FILES if (deployed / name).is_file()}
+    if existing:
+        if existing != set(FILES):
+            raise ValueError('Pages registry is missing signed metadata')
         subprocess.run([
-            'gh', 'release', 'download', tag, '--pattern', 'index.json',
-            '--pattern', 'index.json.sig', '--dir', d
+            'cargo',
+            'run',
+            '--release',
+            '--locked',
+            '-p',
+            'foundry-release',
+            '--',
+            'verify',
+            '--input',
+            str(deployed / 'index.json'),
+            '--signature',
+            str(deployed / 'index.json.sig'),
+            '--root',
+            'trust/root.json',
+            '--allow-expired',
         ],
                        check=True)
-        subprocess.run([
-            'cargo', 'run', '--release', '--locked', '-p', 'foundry-release',
-            '--', 'verify', '--input', f'{d}/index.json', '--signature',
-            f'{d}/index.json.sig', '--root', 'trust/root.json',
-            '--allow-expired'
-        ],
-                       check=True)
-        old = json.loads(Path(d, 'index.json').read_text())
-        assert int(sequence) > old['sequence'], 'Index sequence must increase'
+        old = json.loads((deployed / 'index.json').read_bytes())
+        if int(sequence) <= old['sequence']:
+            raise ValueError('Index sequence must increase')
+    elif any(release['published'] for release in releases):
+        raise ValueError(
+            'Restore the signed registry history on gh-pages before publishing')
 (history / 'index.json').write_text(json.dumps(old))
 with open(os.environ['GITHUB_OUTPUT'], 'a') as stream:
     stream.write('history_sha256=' +

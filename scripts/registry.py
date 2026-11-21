@@ -307,7 +307,8 @@ def safe_environment(source=None):
         'TMPDIR', 'SYSTEMROOT', 'WINDIR', 'COMSPEC', 'PATHEXT', 'INCLUDE',
         'LIB', 'LIBPATH', 'CARGO_HOME', 'RUSTUP_HOME', 'NUMBER_OF_PROCESSORS',
         'PROCESSOR_ARCHITECTURE', 'PROGRAMFILES', 'PROGRAMFILES(X86)', 'LANG',
-        'LC_ALL', 'SDKROOT', 'MACOSX_DEPLOYMENT_TARGET'
+        'LC_ALL', 'SDKROOT', 'MACOSX_DEPLOYMENT_TARGET',
+        'CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER'
     }
     return {k: v for k, v in source.items() if k.upper() in allow}
 

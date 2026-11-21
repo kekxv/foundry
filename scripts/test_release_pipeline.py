@@ -66,7 +66,7 @@ class ReleaseChecks(unittest.TestCase):
                             version=extension_version,
                             platform=plat,
                             url=
-                            f'https://github.com/owner/foundry/releases/download/v0.1.0/{filename}',
+                            f'https://owner.github.io/foundry/registry/packages/{filename}',
                             **record))
                 name = f'foundry-0.1.0-{platform}.zip'
                 data = name.encode()
@@ -131,7 +131,8 @@ class ReleaseChecks(unittest.TestCase):
             scripts = d / 'scripts'
             scripts.mkdir()
             for file in [
-                    'assemble_release.py', 'verify_candidate.py', 'registry.py'
+                    'assemble_release.py', 'verify_candidate.py', 'registry.py',
+                    'pages_registry.py', 'publish_catalogue.py'
             ]:
                 shutil.copy2(ROOT / 'scripts' / file, scripts / file)
             extension = d / 'extensions/demo/1.0.0'
@@ -153,14 +154,15 @@ class ReleaseChecks(unittest.TestCase):
                 'platform':
                     'any',
                 'url':
-                    'https://github.com/owner/foundry/releases/download/v0.1.0/demo.zip',
+                    'https://owner.github.io/foundry/registry/packages/demo-1.0.0-any.zip',
                 'sha256':
                     hashlib.sha256(b'original').hexdigest(),
                 'size':
                     8
             }
             if external:
-                original['url'] = 'https://downloads.example.org/demo.zip'
+                original[
+                    'url'] = 'https://downloads.example.org/demo-1.0.0-any.zip'
                 (extension / 'packages.yaml').write_text(
                     f'any:\n  url: {original["url"]}\n'
                     f'  sha256: "{original["sha256"]}"\n  size: 10\n',
@@ -222,12 +224,16 @@ class ReleaseChecks(unittest.TestCase):
 
             assets = {}
             if not external:
-                (part / 'demo.zip').write_bytes(b'original')
-                assets['demo.zip'] = {'size': 8, 'sha256': original['sha256']}
+                (part / 'demo-1.0.0-any.zip').write_bytes(b'original')
+                assets['demo-1.0.0-any.zip'] = {
+                    'size': 8,
+                    'sha256': original['sha256']
+                }
             publish(1, False, [original], assets)
             self.assertEqual(history['packages'], [original])
             if external:
-                self.assertFalse((d / 'dist/approved/demo.zip').exists())
+                self.assertFalse(
+                    (d / 'dist/approved/demo-1.0.0-any.zip').exists())
             publish(2, True, [], {})
             self.assertEqual(history['packages'], [])
             self.assertEqual(history['withdrawnPackages'], [original])

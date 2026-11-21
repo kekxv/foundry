@@ -229,6 +229,7 @@ class WorkflowGateTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         workflow = read_yaml(root / '.github/workflows/extensions.yml')
         events = workflow.get('on', workflow.get(True))
+        self.assertEqual(set(events), {'pull_request'})
         pull_request = events['pull_request'] or {}
         self.assertNotIn('paths', pull_request)
         self.assertNotIn('paths-ignore', pull_request)
@@ -258,27 +259,24 @@ class WorkflowGateTests(unittest.TestCase):
         workflow = read_yaml(root / '.github/workflows/extensions.yml')
         script = workflow['jobs']['checks']['steps'][0]['run']
         cases = [
-            ('pull_request', 'success', 'success', 'success', 'true', True),
-            ('pull_request', 'success', 'success', 'skipped', 'false', True),
-            ('push', 'skipped', 'success', 'success', 'true', True),
-            ('pull_request', 'failure', 'success', 'success', 'true', False),
-            ('pull_request', 'success', 'failure', 'skipped', '', False),
-            ('pull_request', 'success', 'cancelled', 'skipped', '', False),
-            ('pull_request', 'success', 'success', 'failure', 'true', False),
-            ('pull_request', 'success', 'success', 'cancelled', 'true', False),
-            ('pull_request', 'success', 'success', 'skipped', 'true', False),
-            ('pull_request', 'skipped', 'success', 'success', 'true', False),
-            ('pull_request', 'success', 'success', 'skipped', '', False),
+            ('success', 'success', 'success', 'true', True),
+            ('success', 'success', 'skipped', 'false', True),
+            ('failure', 'success', 'success', 'true', False),
+            ('success', 'failure', 'skipped', '', False),
+            ('success', 'cancelled', 'skipped', '', False),
+            ('success', 'success', 'failure', 'true', False),
+            ('success', 'success', 'cancelled', 'true', False),
+            ('success', 'success', 'skipped', 'true', False),
+            ('skipped', 'success', 'success', 'true', False),
+            ('success', 'success', 'skipped', '', False),
         ]
         with tempfile.TemporaryDirectory() as directory:
-            for event, diff, matrix, test, changes, expected in cases:
-                with self.subTest(event=event,
-                                  diff=diff,
+            for diff, matrix, test, changes, expected in cases:
+                with self.subTest(diff=diff,
                                   matrix=matrix,
                                   test=test,
                                   changes=changes):
                     env = dict(os.environ,
-                               EVENT_NAME=event,
                                DIFF_RESULT=diff,
                                MATRIX_RESULT=matrix,
                                TEST_RESULT=test,

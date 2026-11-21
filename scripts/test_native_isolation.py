@@ -78,8 +78,12 @@ class NativeIsolation(unittest.TestCase):
 ''')
             compiler = shutil.which('rustc') or str(
                 Path.home() / '.cargo/bin/rustc')
-            command(compiler, '--edition=2024', '--crate-type=cdylib', '-o',
-                    d / 'lib' / filename, rust)
+            linker = os.environ.get(
+                'CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER')
+            flags = ['-C', f'linker={linker}'
+                    ] if os.name == 'nt' and linker else []
+            command(compiler, *flags, '--edition=2024', '--crate-type=cdylib',
+                    '-o', d / 'lib' / filename, rust)
             cli = [
                 BIN / ('foundry' + SUFFIX), '--data-dir', d / 'data',
                 '--timeout-ms', '1500', 'dev', 'run', d

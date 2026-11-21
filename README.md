@@ -2,7 +2,7 @@
 
 **用 JavaScript 描述能力，按需安装跨平台扩展。** Rust 客户端嵌入 QuickJS，统一调用纯 JS、命令行与 libffi 动态库扩展。
 
-当前提供可本地构建和验证的首版实现。正式 GitHub 仓库、生产公钥和 Environment 审批规则尚需管理员配置；不包含生产私钥，也没有已上线的下载地址。已配置 Windows x64、macOS arm64、Linux x64/arm64 的 CI，实际支持状态以这些 runner 的结果为准。macOS 仅提供 arm64（Apple Silicon）客户端及原生扩展产物。Linux x64 发布基线为 Ubuntu 22.04 / glibc 2.35；ARM64 为 Ubuntu 24.04 / glibc 2.39。
+支持 Windows x64、macOS arm64（Apple Silicon）、Linux x64 和 Linux arm64，实际验证状态见 GitHub Actions。Linux x64 的发布基线为 Ubuntu 22.04（glibc 2.35），Linux arm64 为 Ubuntu 24.04（glibc 2.39）。首次签名发布需要配置生产公钥和 GitHub Environment。
 
 ## 本地开始
 
@@ -21,6 +21,8 @@ python3 scripts/build_extensions.py
 Windows 使用 `python` 和 `target/debug/foundry.exe`。以上命令使用 POSIX shell 引号；PowerShell 下根据版本可能需要对传给原生程序的 JSON 双引号转义。`dev run` 明确表示信任本地源码，不绕过正式安装的验签。
 
 ## 正式安装与调用
+
+正式发布的客户端会自动读取 Pages 的签名索引，并用内置公钥根校验。Pages 同时提供按扩展与版本组织的目录 JSON。首次正式签名发布完成后，`foundry search`、`foundry download` 和 `foundry install` 才能从默认索引获取扩展。[发布说明](docs/publishing.md#官网与索引)
 
 官网构建生成 `install.sh` 和 `install.ps1`。安装前通过可信渠道取得 Release 的 `allowed_signers` 公钥文件。脚本使用系统 OpenSSH 验证安装清单的 Ed25519 签名，核对对应平台 ZIP 的大小和 SHA-256，再把客户端与 worker 安装到同一目录。
 
