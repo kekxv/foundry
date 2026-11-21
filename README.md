@@ -22,6 +22,24 @@ Windows 使用 `python` 和 `target/debug/foundry.exe`。以上命令使用 POSI
 
 ## 正式安装与调用
 
+官网构建生成 `install.sh` 和 `install.ps1`。安装前通过可信渠道取得 Release 的 `allowed_signers` 公钥文件。脚本使用系统 OpenSSH 验证安装清单的 Ed25519 签名，核对对应平台 ZIP 的大小和 SHA-256，再把客户端与 worker 安装到同一目录。
+
+Linux x64/arm64 和 macOS arm64 可在官网部署后运行：
+
+```sh
+curl -fsSL --proto '=https' --proto-redir '=https' https://OWNER.github.io/REPO/install.sh \
+  | sh -s -- --allowed-signers ./allowed_signers --install-dir "$HOME/.local/share/foundry-client"
+```
+
+Windows x64 使用 PowerShell。保存脚本后，按本机执行策略运行。
+
+```powershell
+Invoke-WebRequest https://OWNER.github.io/REPO/install.ps1 -OutFile install.ps1
+.\install.ps1 -AllowedSigners .\allowed_signers
+```
+
+把示例 URL 换成实际官网地址。安装器默认选择最新正式 Release，也可用 `--version` 或 `-Version` 指定版本。安装路径会在成功后显示，可将该目录加入 PATH。Linux 和 macOS 使用 `curl`、`unzip`、系统 SHA-256 命令和支持 `-Y verify` 的 OpenSSH。Windows 需要启用支持该命令的系统 OpenSSH Client。[安装与发布](docs/publishing.md)
+
 从可信来源获取公钥根文件，配置签名索引：
 
 ```sh
@@ -108,6 +126,8 @@ foundry new my-command --type executable
 ## 中心仓库式扩展 CI
 
 扩展按 `extensions/<id>/<version>/` 保存。根目录的 `metadata.json` 列出所有版本及撤回原因；每个版本自带 `manifest.json`、JS 接口、原生构建源码和 `presubmit.yml`。版本号独立于客户端版本，当前支持稳定 SemVer `x.y.z`。
+
+成品 ZIP 也可托管在第三方 HTTPS 地址。在 `packages.yaml` 中按平台填写 URL 和 SHA-256，文件大小由 CI 自动获取。[第三方托管的 ZIP](docs/registry.md#第三方托管的-zip)
 
 ```text
 extensions/native-math/

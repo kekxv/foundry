@@ -12,11 +12,27 @@
 
 PR 自动执行 Rust 测试、真实签名仓库测试、libffi 崩溃测试和网站构建，并上传按平台生成的未签名候选包与摘要预览。PR 预览不会进入受保护签名步骤，正式发布必须重新核对合并提交。矩阵为 Windows 2022 x64、macOS 15 ARM64、Ubuntu 22.04 x64、Ubuntu 24.04 ARM64；托管 runner 的可用性受 GitHub 仓库类型/配额影响。没有对应 runner 结果时不能声称该平台已验证。
 
+PR 的 **PR malware scan** 检查由独立 Linux runner 运行 ClamAV。它扫描四个平台的扩展候选 ZIP，包括按固定 SHA-256 下载的第三方 ZIP。候选文件缺失、哈希不匹配、发现威胁或扫描出错都会使检查失败。完整日志可在对应的 Actions 任务中查看。仓库管理员可将该检查设为合并所需的状态检查。
+
+扫描器及其安装步骤从 PR 的基准提交加载，候选注册表只作为数据读取。首次启用时先将扫描器合入基准分支，再启用必需检查。该检查在四平台候选包构建后运行。修改 CI 工作流仍需审核。
+
+ClamAV 病毒库按 UTC 日期缓存。当天命中时直接使用，跨天时恢复已有病毒库并由 FreshClam 更新。默认分支每天定时预热缓存，推送到 `main` 时也会预热，供不同 PR 共享。
+
 合并后手动触发 Signed release workflow，提供新的稳定版本号和严格递增 sequence。版本号需与 Cargo workspace 一致。流程拒绝已有版本，不覆盖资产，按 workflow 固定 sourceCommit 构建。首次发布需要 `trust/root.json`。
 
 无密钥构建 job 为每平台生成客户端 ZIP、worker 及正式扩展；候选 job 合并索引并显示提交与 release-manifest SHA-256。维护者核对后批准 release-signing。签名 job 校验所有资产摘要、包 URL、提交及平台集合，仅签名元数据；发布 job 才拥有 Release 写权限，且没有签名私钥。30 天有效索引需要到期前发布新批次；旧版本已安装包离线运行不受索引过期影响。
 
-客户端 ZIP 附 trust-root.json 便于使用，但首次引导仍需核对独立可信的公钥指纹。Release 提供 index.json、index.json.sig、release-manifest.json、release-manifest.json.sig，以及四个平台客户端和扩展包。原生依赖 libffi 静态链接到 worker。当前没有 `curl | sh` 安装入口。发布后可下载平台对应的客户端 ZIP，将 `foundry` 和 `foundry-worker` 解压到同一目录。
+客户端 ZIP 附 trust-root.json 便于使用，但首次引导仍需核对独立可信的公钥指纹。Release 提供 index.json、index.json.sig、release-manifest.json、release-manifest.json.sig，以及四个平台客户端和扩展包。原生依赖 libffi 静态链接到 worker。
+
+## 客户端安装脚本
+
+Pages 构建会在站点根目录生成 `install.sh` 和 `install.ps1`，并配置该站点对应的 GitHub 仓库。两种入口使用系统命令，不需要安装 Python 或 OpenSSL。按 [README](../README.md#正式安装与调用) 的示例运行，传入通过独立可信渠道确认的 `allowed_signers`。脚本用 `ssh-keygen -Y verify` 验证 `install-manifest.txt.sig`，再用签名清单中的大小和 SHA-256 校验对应平台的 ZIP。
+
+受保护的签名 job 用当前 Ed25519 发布密钥，从已批准的 Release 清单生成 `install-manifest.txt`、OpenSSH 格式的签名和公开的 `allowed_signers`。安装签名采用独立的 `foundry-install-v1` 命名空间，沿用当前的单签信任根。通过独立可信渠道确认完整的 `allowed_signers` 文件，包括第一行记录的信任有效期。轮换密钥时重新确认此文件。签名扩展使用 JSON 公钥根和签名索引。
+
+默认安装到 Linux 和 macOS 的 `~/.local/share/foundry/clients/<版本>/`，或 Windows 的 `%LOCALAPPDATA%\foundry\clients\<版本>\`。可用 `--install-dir` 或 `-InstallDir` 指定新的安装目录。脚本把两个可执行文件放在一起，已有目录会保留。使用签名扩展时仍需配置索引和公钥根。
+
+在本地网站构建中，可用 `FOUNDRY_REPOSITORY=OWNER/REPO npm run build --prefix website` 生成带仓库配置的安装脚本。用户也可通过 `--repo` 或 `-Repository` 显式指定仓库，或者通过 `--release-base-url` 或 `-ReleaseBaseUrl` 指定兼容 GitHub Release URL 布局的 HTTPS 镜像。
 
 ## 官网与索引
 
@@ -34,6 +50,7 @@ python3 scripts/test_device_plugins.py
 python3 scripts/test_native_isolation.py
 python3 scripts/test_host_files.py
 python3 scripts/test_release_pipeline.py
+python3 scripts/test_install.py
 ```
 
 测试会临时生成、签署并安装三类实现与四个设备/识别插件，不接触生产 secret。开发打包：

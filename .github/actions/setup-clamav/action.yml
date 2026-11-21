@@ -1,0 +1,53 @@
+name: Set up ClamAV
+description: Install ClamAV and reuse a daily malware signature cache
+runs:
+  using: composite
+  steps:
+    - name: Set cache directory and date
+      id: database
+      shell: bash
+      run: |
+        database="$RUNNER_TEMP/foundry-clamav"
+        mkdir -p "$database"
+        printf 'path=%s\ndate=%s\n' "$database" "$(date -u +%F)" >> "$GITHUB_OUTPUT"
+    - name: Restore virus definitions
+      id: cache
+      uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: ${{ steps.database.outputs.path }}
+        key: clamav-db-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.database.outputs.date }}
+        restore-keys: clamav-db-v1-${{ runner.os }}-${{ runner.arch }}-
+    - name: Install scanner
+      shell: bash
+      run: |
+        sudo systemctl mask --runtime clamav-freshclam.service
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends clamav clamav-freshclam
+    - name: Update virus definitions
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        DATABASE: ${{ steps.database.outputs.path }}
+      run: |
+        config=$(mktemp "$RUNNER_TEMP/foundry-freshclam.XXXXXXXX")
+        trap 'rm -f "$config"' EXIT
+        printf 'DatabaseDirectory %s\nDatabaseMirror database.clamav.net\n' "$DATABASE" > "$config"
+        freshclam --config-file="$config"
+    - name: Check and export the virus database
+      shell: bash
+      env:
+        DATABASE: ${{ steps.database.outputs.path }}
+      run: |
+        for name in main daily; do
+          if [[ ! -s "$DATABASE/$name.cvd" && ! -s "$DATABASE/$name.cld" ]]; then
+            printf 'Missing ClamAV database: %s\n' "$name" >&2
+            exit 1
+          fi
+        done
+        printf 'FOUNDRY_CLAMAV_DATABASE=%s\n' "$DATABASE" >> "$GITHUB_ENV"
+    - name: Save updated virus definitions
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: ${{ steps.database.outputs.path }}
+        key: ${{ steps.cache.outputs.cache-primary-key }}

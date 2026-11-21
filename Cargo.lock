@@ -540,13 +540,16 @@ name = "foundry-release"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "clap",
  "ed25519-dalek",
  "foundry-core",
  "foundry-store",
  "getrandom 0.3.4",
  "hex",
+ "semver",
  "serde_json",
+ "sha2",
  "tempfile",
 ]
 

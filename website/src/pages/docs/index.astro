@@ -1,5 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 
 <Base title="开发文档">
@@ -28,6 +30,14 @@ import Base from '../../layouts/Base.astro';
     </aside>
     <article class="content">
       <h2 id="quick-start">快速开始</h2>
+      <p>
+        安装已发布的客户端可使用
+        <a href={`${base}/install.sh`}>Linux / macOS 安装脚本</a>或{' '}
+        <a href={`${base}/install.ps1`}>Windows 安装脚本</a>。先确认公开的
+        <code>allowed_signers</code> 文件，再通过 <code>--allowed-signers</code>
+        或 <code>-AllowedSigners</code> 传入路径。系统 OpenSSH 会验证 Release
+        签名。
+      </p>
       <p>
         安装仓库固定版本的 Rust，以及 C/C++ 编译工具、make 和 autoconf；Windows
         使用 MSVC 工具链。libffi 由构建过程静态链接，用户无需单独安装。

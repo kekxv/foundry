@@ -3,6 +3,8 @@ use clap::{Parser, Subcommand};
 use ed25519_dalek::{Signer, SigningKey};
 use foundry_store::*;
 use std::{collections::BTreeSet, path::PathBuf};
+
+mod installer;
 #[derive(Parser)]
 #[command(about = "Reproducible Foundry packaging and detached signing")]
 struct Cli {
@@ -11,6 +13,18 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Commands {
+    /// Verify and stage a prebuilt extension for CI
+    PrepareExternal {
+        #[arg(long)]
+        package: PathBuf,
+        #[arg(long)]
+        manifest: PathBuf,
+        #[arg(long)]
+        output: PathBuf,
+        /// Keep the verified ZIP for a CI malware scan
+        #[arg(long)]
+        scan_archive: Option<PathBuf>,
+    },
     Pack {
         #[arg(long)]
         source: PathBuf,
@@ -41,6 +55,19 @@ enum Commands {
         #[arg(long, default_value = "index")]
         domain: String,
     },
+    /// Sign an installation manifest in OpenSSH format using the release key
+    SignInstaller {
+        #[arg(long)]
+        input: PathBuf,
+        #[arg(long)]
+        manifest: PathBuf,
+        #[arg(long)]
+        output: PathBuf,
+        #[arg(long)]
+        root: PathBuf,
+        #[arg(long)]
+        allowed_signers: PathBuf,
+    },
     Verify {
         #[arg(long)]
         input: PathBuf,
@@ -68,6 +95,26 @@ fn main() {
 }
 fn run() -> Result<()> {
     match Cli::parse().command {
+        Commands::PrepareExternal {
+            package,
+            manifest,
+            output,
+            scan_archive,
+        } => {
+            let package: Package =
+                serde_json::from_value(foundry_core::parse_unique_json(&std::fs::read(package)?)?)?;
+            ensure!(
+                package.url.starts_with("https://")
+                    && (1..=MAX_ARCHIVE_SIZE).contains(&package.size),
+                "invalid external ZIP URL or size"
+            );
+            let declared = foundry_core::parse_unique_json(&std::fs::read(manifest)?)?;
+            let bytes = fetch(&package.url, package.size)?;
+            stage_external(&package, &bytes, &declared, &output)?;
+            if let Some(archive) = scan_archive {
+                std::fs::write(archive, bytes)?;
+            }
+        }
         Commands::Pack {
             source,
             output,
@@ -146,12 +193,7 @@ fn run() -> Result<()> {
             key_id,
             domain,
         } => {
-            let key = std::env::var("FOUNDRY_SIGNING_KEY")
-                .context("FOUNDRY_SIGNING_KEY must contain a 32-byte hex seed")?;
-            let bytes: [u8; 32] = hex::decode(key)
-                .map_err(|_| anyhow::anyhow!("invalid signing key encoding"))?
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("invalid signing key length"))?;
+            let key = signing_key()?;
             let domain = match domain.as_str() {
                 "index" => INDEX_DOMAIN,
                 "root" => ROOT_DOMAIN,
@@ -160,13 +202,31 @@ fn run() -> Result<()> {
             };
             let mut data = domain.to_vec();
             data.extend(std::fs::read(input)?);
-            let signature = SigningKey::from_bytes(&bytes).sign(&data);
+            let signature = key.sign(&data);
             std::fs::write(
                 output,
                 serde_json::to_vec_pretty(&Signature {
                     key_id,
                     signature: hex::encode(signature.to_bytes()),
                 })?,
+            )?;
+        }
+        Commands::SignInstaller {
+            input,
+            manifest,
+            output,
+            root,
+            allowed_signers,
+        } => {
+            let root =
+                serde_json::from_value(foundry_core::parse_unique_json(&std::fs::read(root)?)?)?;
+            installer::sign(
+                &input,
+                &manifest,
+                &output,
+                &allowed_signers,
+                &root,
+                &signing_key()?,
             )?;
         }
         Commands::Verify {
@@ -218,6 +278,50 @@ fn run() -> Result<()> {
     }
     Ok(())
 }
+
+fn stage_external(
+    package: &Package,
+    bytes: &[u8],
+    declared: &serde_json::Value,
+    output: &std::path::Path,
+) -> Result<()> {
+    let parent = output
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| std::path::Path::new("."));
+    std::fs::create_dir_all(parent)?;
+    let temp = tempfile::tempdir_in(parent)?;
+    let store = Store::new(temp.path().to_path_buf())?;
+    let grants = BTreeSet::from([
+        "process.spawn".into(),
+        "native.call".into(),
+        "filesystem.read".into(),
+        "filesystem.write".into(),
+    ]);
+    let installed = store.install(package, bytes, &grants)?;
+    let path = temp.path().join("packages").join(installed.archive_sha256);
+    let packaged = foundry_core::parse_unique_json(&std::fs::read(path.join("manifest.json"))?)?;
+    ensure!(
+        &packaged == declared,
+        "external ZIP manifest does not match registry manifest"
+    );
+    ensure!(
+        !output.exists(),
+        "external staging destination already exists"
+    );
+    std::fs::rename(path, output)?;
+    Ok(())
+}
+
+fn signing_key() -> Result<SigningKey> {
+    let key = std::env::var("FOUNDRY_SIGNING_KEY")
+        .context("FOUNDRY_SIGNING_KEY must contain a 32-byte hex seed")?;
+    let seed: [u8; 32] = hex::decode(key)
+        .map_err(|_| anyhow::anyhow!("invalid signing key encoding"))?
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("invalid signing key length"))?;
+    Ok(SigningKey::from_bytes(&seed))
+}
 fn copy_js(base: &std::path::Path, dir: &std::path::Path, out: &std::path::Path) -> Result<()> {
     for e in std::fs::read_dir(dir)? {
         let e = e?;
@@ -241,4 +345,59 @@ fn copy_js(base: &std::path::Path, dir: &std::path::Path, out: &std::path::Path)
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn stages_only_the_pinned_archive_with_the_declared_manifest() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let path = temp.path();
+        let source = path.join("source");
+        fs::create_dir(&source)?;
+        let source_manifest = include_bytes!("../../../extensions/text-utils/0.1.0/manifest.json");
+        let declared = foundry_core::parse_unique_json(source_manifest)?;
+        fs::write(source.join("manifest.json"), source_manifest)?;
+        fs::write(
+            source.join("main.js"),
+            "export async function normalize(input) { return input; }",
+        )?;
+        write_file_list(&source)?;
+        let bytes = pack_zip(&source)?;
+        let mut package = Package {
+            id: "text-utils".into(),
+            version: "0.1.0".into(),
+            platform: "any".into(),
+            url: "https://downloads.example.org/text-utils.zip".into(),
+            sha256: digest(&bytes),
+            size: bytes.len() as u64,
+        };
+        let output = path.join("output");
+
+        package.size -= 1;
+        let error = stage_external(&package, &bytes, &declared, &output).unwrap_err();
+        assert!(error.to_string().contains("archive digest/size mismatch"));
+        assert!(!output.exists());
+        package.size += 1;
+
+        let mut tampered = bytes.clone();
+        tampered[0] ^= 1;
+        let error = stage_external(&package, &tampered, &declared, &output).unwrap_err();
+        assert!(error.to_string().contains("archive digest/size mismatch"));
+        assert!(!output.exists());
+
+        let mut wrong_manifest = declared.clone();
+        wrong_manifest["description"] = serde_json::json!("Different declared behavior");
+        let error = stage_external(&package, &bytes, &wrong_manifest, &output).unwrap_err();
+        assert!(error.to_string().contains("manifest does not match"));
+        assert!(!output.exists());
+
+        stage_external(&package, &bytes, &declared, &output)?;
+        assert_eq!(fs::read(output.join("manifest.json"))?, source_manifest);
+        verify_files(&output)?;
+        Ok(())
+    }
 }

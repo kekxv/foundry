@@ -5,7 +5,9 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
+from build_extensions import check_external_size
 from registry import merge_packages
 from registry import partition_packages
 from registry import published_packages
@@ -14,6 +16,46 @@ from registry import safe_environment
 
 
 class RegistryTests(unittest.TestCase):
+
+    def test_curl_checks_only_the_final_response_size(self):
+        url = 'https://downloads.example.org/demo.zip'
+        limit = 250 * 1024**2
+        redirect = 'HTTP/1.1 302 Found\r\nContent-Length: 0\r\n\r\n'
+        with patch('build_extensions.subprocess.run') as curl:
+            curl.return_value.returncode = 0
+
+            def set_response(headers):
+                curl.return_value.stdout = (redirect + 'HTTP/2 200\r\n' +
+                                            headers + '\r\n')
+
+            set_response(f'content-length: {limit}\r\n')
+            self.assertEqual(check_external_size(url), limit)
+            self.assertIn('--head', curl.call_args.args[0])
+            for headers in [
+                    f'Content-Length: {limit + 1}\r\n',
+                    'Content-Length: 0\r\n',
+                    'Transfer-Encoding: chunked\r\n',
+                    'Content-Length: 1024\r\nContent-Length: 2048\r\n',
+            ]:
+                set_response(headers)
+                with self.assertRaises(ValueError):
+                    check_external_size(url)
+
+    def test_yaml_package_size_is_optional_and_estimates_are_not_pins(self):
+        with tempfile.TemporaryDirectory() as d:
+            registry, version = self.registry(Path(d))
+            url = 'https://example.org/demo.zip'
+            digest = 'ab' * 32
+            yaml = f'any:\n  url: {url}\n  sha256: "{digest}"\n'
+            config = version / 'packages.yaml'
+            expected = {'any': {'url': url, 'sha256': digest}}
+            for suffix in ('', '  size: 1000\n', '  size: 262144001\n'):
+                config.write_text(yaml + suffix, encoding='utf-8')
+                self.assertEqual(registry.external_packages('demo', '1.0.0'),
+                                 expected)
+            (version / 'packages.json').write_text('{}', encoding='utf-8')
+            with self.assertRaises(ValueError):
+                registry.external_packages('demo', '1.0.0')
 
     def registry(self, root):
         version = root / 'extensions/demo/1.0.0'
@@ -74,6 +116,45 @@ class RegistryTests(unittest.TestCase):
             self.assertEqual(r.versions('demo'), ['1.0.0'])
             self.assertEqual(
                 r.config('demo', '1.0.0')['matrix']['platform'], ['linux-x64'])
+
+    def test_external_packages_require_complete_https_pins(self):
+        with tempfile.TemporaryDirectory() as d:
+            registry, version = self.registry(Path(d))
+            record = {
+                'url': 'https://downloads.example.org/demo.zip',
+                'sha256': 'ab' * 32,
+                'size': 1024,
+            }
+            pins = version / 'packages.json'
+            pins.write_text(json.dumps({'any': record}))
+            self.assertEqual(registry.external_packages('demo', '1.0.0'),
+                             {'any': {
+                                 k: record[k] for k in ('url', 'sha256')
+                             }})
+            for invalid in [
+                {},
+                {
+                    'linux-x64': record
+                },
+                {
+                    'any': dict(record, url='http://example.org/demo.zip')
+                },
+                {
+                    'any': dict(record, url='https://key@example.org/demo.zip')
+                },
+                {
+                    'any': dict(record, sha256='missing')
+                },
+                {
+                    'any': dict(record, size=True)
+                },
+                {
+                    'any': dict(record, size=0)
+                },
+            ]:
+                pins.write_text(json.dumps(invalid))
+                with self.assertRaises(ValueError):
+                    registry.external_packages('demo', '1.0.0')
 
     def test_rejects_unknown_runner_shell_tasks_duplicate_keys_and_paths(self):
         with tempfile.TemporaryDirectory() as d:

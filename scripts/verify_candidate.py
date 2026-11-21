@@ -26,16 +26,23 @@ for name, record in m['assets'].items():
 index = json.loads((root / 'index.json').read_text())
 assert index['sequence'] == m['sequence'] and index['sourceCommit'] == m[
     'sourceCommit'], 'Wrong index binding'
+from registry import MAX_PACKAGE_BYTES
 from registry import published_packages
 from registry import Registry
 
 registry = Registry(Path(__file__).resolve().parents[1])
 expected = set()
+external = {}
 for id in registry.names():
     for version in registry.versions(id):
         manifest = registry.manifest(id, version)
         for platform in manifest['platforms']:
             expected.add((id, version, platform))
+        for platform, record in registry.external_packages(id, version).items():
+            external[(id, version, platform)] = dict(id=id,
+                                                     version=version,
+                                                     platform=platform,
+                                                     **record)
 assert {(p['id'], p['version'], p['platform']) for p in index['packages']
        } == expected, 'Incomplete version/platform coverage'
 previous = {}
@@ -53,8 +60,16 @@ assert set(previous) | expected == {
 }, 'Published history removed or unexpected records added'
 for p in ledger:
     key = (p['id'], p['version'], p['platform'])
+    if key in external:
+        assert all(
+            p.get(field) == value for field, value in external[key].items()
+        ), 'External package does not match pinned metadata'
+        assert type(p.get('size')) is int and 0 < p[
+            'size'] <= MAX_PACKAGE_BYTES, 'Invalid external package size'
     if key in previous:
         assert p == previous[key], 'Published package changed'
+        continue
+    if key in external:
         continue
     u = urlparse(p['url'])
     assert u.scheme == 'https' and u.netloc == 'github.com', 'Untrusted asset origin'

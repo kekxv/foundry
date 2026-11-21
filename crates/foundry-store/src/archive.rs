@@ -6,7 +6,8 @@ use std::{
     io::{Cursor, Read, Write},
     path::Path,
 };
-pub const MAX_ARCHIVE_SIZE: u64 = 128 * 1024 * 1024;
+pub const MAX_ARCHIVE_SIZE: u64 = 250 * 1024 * 1024;
+const MAX_ENTRY_SIZE: u64 = 128 * 1024 * 1024;
 const MAX_EXPANDED: u64 = 512 * 1024 * 1024;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -114,7 +115,7 @@ pub fn extract_zip(bytes: &[u8], root: &Path) -> Result<()> {
             .checked_add(f.size())
             .ok_or_else(|| anyhow::anyhow!("size overflow"))?;
         ensure!(
-            total <= MAX_EXPANDED && f.size() <= MAX_ARCHIVE_SIZE,
+            total <= MAX_EXPANDED && f.size() <= MAX_ENTRY_SIZE,
             "expanded archive too large"
         );
         ensure!(

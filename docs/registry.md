@@ -47,6 +47,22 @@ python3 scripts/build_extensions.py --extension native-math --version 0.1.0 --ou
 
 版本目录一旦存在于基准提交便不能原地修改，连测试配置也保持不可变。修复旧版代码或测试应新增版本，撤回原因只改根元数据。维护者必须审核 metadata 与工作流变更；maintainers 字段目前记录联系人，不授予自动合并或签名权限。
 
+## 第三方托管的 ZIP
+
+扩展作者可以把成品 ZIP 托管在公开的 HTTPS 地址。仓库中保留 `metadata.json`、对应版本的 `manifest.json`、`presubmit.yml` 和 `packages.yaml`。纯 JS 使用 `any`，原生扩展按 manifest 声明的平台分别填写。
+
+```yaml
+any:
+  url: https://downloads.example.org/my-extension-1.0.0-any.zip
+  sha256: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+```
+
+用 `foundry-release pack` 生成 ZIP 和对应的 SHA-256 与字节数。ZIP 包内的 `manifest.json` 必须与仓库声明一致。使用外部 ZIP 时，`presubmit.yml` 保留平台和测试任务，省略 `build`。各平台 CI 使用 Foundry 的下载和校验代码，核对大小、SHA-256、文件清单及 manifest 后运行测试。
+
+扩展 ZIP 下载上限为 250 MiB（262144000 字节）。下载第三方 ZIP 前，CI 用 `curl --head` 获取最终 HTTPS 地址的 `Content-Length`，并据此限制下载。下载后严格核对字节数和 SHA-256。配置中的 `size` 可省略，填写时仅作字节数参考。旧版 `packages.json` 仍可读取，每个版本只使用一种格式。
+
+正式发布把 URL、SHA-256 和大小写入签名索引。客户端按原有的 `foundry download <id>` 或 `foundry install <id>` 直接从该地址下载，并再次核对索引中的值。仓库和本项目的 GitHub Release 都只需保存引用元数据。URL、大小或摘要变化时，请发布新的扩展版本。
+
 签名索引的 `withdrawnPackages` 保留已撤回包的原始记录，客户端只从 `packages` 选择安装。撤回后恢复发布会复用原来的包及 URL，不允许借撤回重写历史二进制。
 
 ## PR 审查 diff 与平台结果

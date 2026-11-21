@@ -4,8 +4,11 @@ import os
 from pathlib import Path
 from pathlib import PurePosixPath
 import re
+from urllib.parse import urlsplit
 
 import yaml
+
+MAX_PACKAGE_BYTES = 250 * 1024**2
 
 RUNNERS = {
     'linux-x64': 'ubuntu-22.04',
@@ -163,6 +166,51 @@ class Registry:
             raise ValueError('manifest identity/version mismatch')
         return m
 
+    def external_packages(self, id, version):
+        source = self.source(id, version)
+        yaml_path = within(source, 'packages.yaml')
+        legacy_path = within(source, 'packages.json')
+        if yaml_path.exists() and legacy_path.exists():
+            raise ValueError('use only one of packages.yaml and packages.json')
+        if yaml_path.exists():
+            records = read_yaml(yaml_path)
+        elif legacy_path.exists():
+            records = read_json(legacy_path)
+        else:
+            return {}
+        manifest = self.manifest(id, version)
+        platforms = manifest['platforms']
+        supported = {'any'
+                    } if manifest['type'] == 'javascript' else set(RUNNERS)
+        if (not platforms or not set(platforms) <= supported or
+                not isinstance(records, dict) or
+                set(records) != set(platforms)):
+            raise ValueError('external ZIPs must cover all declared platforms')
+        for record in records.values():
+            fields(record, ('url', 'sha256', 'size'), ('url', 'sha256'))
+            url = record['url']
+            if (not isinstance(url, str) or not url.startswith('https://') or
+                    len(url) > 2048 or
+                    any(not 33 <= ord(c) <= 126 or c in '#\\' for c in url)):
+                raise ValueError('external ZIP URL must use HTTPS')
+            parsed = urlsplit(url)
+            if not parsed.hostname or parsed.username is not None:
+                raise ValueError(
+                    'external ZIP URL must have a host and no credentials')
+            if (not isinstance(record['sha256'], str) or
+                    not re.fullmatch(r'[0-9a-f]{64}', record['sha256'])):
+                raise ValueError('external ZIP requires lowercase SHA-256')
+            if 'size' in record and (type(record['size']) is not int or
+                                     record['size'] <= 0):
+                raise ValueError(
+                    'external ZIP size estimate must be a positive integer')
+        return {
+            platform: {
+                'url': record['url'],
+                'sha256': record['sha256']
+            } for platform, record in records.items()
+        }
+
     def config(self, id, version):
         source = self.source(id, version)
         m = self.manifest(id, version)
@@ -179,6 +227,8 @@ class Registry:
             raise ValueError(
                 'presubmit must cover all declared native platforms')
         b = c.get('build')
+        if self.external_packages(id, version) and 'build' in c:
+            raise ValueError('external ZIPs cannot declare a local build')
         if b is not None:
             fields(b, ('cargo_manifest', 'artifacts'),
                    ('cargo_manifest', 'artifacts'))

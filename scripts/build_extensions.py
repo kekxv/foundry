@@ -5,15 +5,67 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
+import tempfile
 
+from registry import MAX_PACKAGE_BYTES
 from registry import published_packages
 from registry import Registry
 from registry import safe_environment
 from registry import within
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def check_external_size(url):
+    curl = 'curl.exe' if os.name == 'nt' else 'curl'
+    result = subprocess.run([
+        curl,
+        '-q',
+        '--head',
+        '--silent',
+        '--show-error',
+        '--fail',
+        '--location',
+        '--max-redirs',
+        '5',
+        '--proto',
+        '=https',
+        '--proto-redir',
+        '=https',
+        '--globoff',
+        '--max-time',
+        '20',
+        '--',
+        url,
+    ],
+                            env=safe_environment(),
+                            capture_output=True,
+                            text=True,
+                            encoding='latin-1',
+                            timeout=25)
+    if result.returncode:
+        raise ValueError(
+            f'external ZIP size check failed (curl exit {result.returncode})')
+    # Redirects and proxies can return multiple header blocks.
+    final = re.split(r'\r?\n\r?\n', result.stdout.strip())[-1].splitlines()
+    if not final or not re.fullmatch(r'HTTP/\S+ 200(?: .*)?', final[0]):
+        raise ValueError('external ZIP size check requires HTTP 200')
+    lengths = [
+        line.partition(':')[2].strip()
+        for line in final[1:]
+        if line.partition(':')[0].lower() == 'content-length'
+    ]
+    if len(lengths) != 1 or not re.fullmatch(r'[0-9]{1,20}', lengths[0]):
+        raise ValueError('external ZIP must report a single Content-Length')
+    length = int(lengths[0])
+    if length > MAX_PACKAGE_BYTES:
+        raise ValueError('external ZIP exceeds the 250 MiB size limit')
+    if length == 0:
+        raise ValueError('external ZIP is empty')
+    return length
 
 
 def host_platform():
@@ -38,6 +90,7 @@ def main():
     p.add_argument('--base-url')
     p.add_argument('--extension')
     p.add_argument('--version')
+    p.add_argument('--retain-external-for-scan', action='store_true')
     p.add_argument(
         '--previous-index',
         type=Path,
@@ -49,6 +102,7 @@ def main():
     registry = Registry(ROOT)
     target = host_platform()
     suffix = '.exe' if os.name == 'nt' else ''
+    release = ROOT / 'target' / a.profile / ('foundry-release' + suffix)
     substitutions = {
         'exe':
             suffix,
@@ -74,12 +128,51 @@ def main():
             if target not in c['matrix']['platform']:
                 continue
             key = (id, version, package_platform)
+            external = registry.external_packages(id, version)
+            candidate = None
+            if external:
+                candidate = dict(id=id,
+                                 version=version,
+                                 platform=package_platform,
+                                 **external[package_platform])
             if key in published:
+                if candidate is not None and any(
+                        published[key].get(field) != value
+                        for field, value in candidate.items()):
+                    raise ValueError(
+                        'published external ZIP metadata is immutable')
                 candidates.append(published[key])
                 continue
             stage = out / 'versions' / id / version
             if stage.exists():
                 shutil.rmtree(stage)
+            if candidate is not None:
+                candidate['size'] = check_external_size(candidate['url'])
+                with tempfile.TemporaryDirectory() as directory:
+                    record = Path(directory) / 'package.json'
+                    record.write_text(json.dumps(candidate), encoding='utf-8')
+                    command = [
+                        str(release),
+                        'prepare-external',
+                        '--package',
+                        str(record),
+                        '--manifest',
+                        str(within(source, 'manifest.json')),
+                        '--output',
+                        str(stage),
+                    ]
+                    if a.retain_external_for_scan:
+                        scan_dir = out / 'external-scan'
+                        scan_dir.mkdir(exist_ok=True)
+                        archive = scan_dir / f'{id}-{version}-{package_platform}.zip'
+                        command.extend(['--scan-archive', str(archive)])
+                    subprocess.run(command,
+                                   check=True,
+                                   env=safe_environment(),
+                                   timeout=120)
+                candidates.append(candidate)
+                update_dev_alias(registry, out, id, version, stage)
+                continue
             stage.mkdir(parents=True)
             shutil.copy2(within(source, 'manifest.json'),
                          stage / 'manifest.json')
@@ -112,15 +205,10 @@ def main():
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(src, dest)
             # Compatibility alias for local development; distribution keeps every version.
-            if registry.versions(id) and version == registry.versions(id)[-1]:
-                alias = out / 'dev' / id
-                if alias.exists():
-                    shutil.rmtree(alias)
-                shutil.copytree(stage, alias)
+            update_dev_alias(registry, out, id, version, stage)
             filename = f'{id}-{version}-{package_platform}.zip'
             result = subprocess.run([
-                str(ROOT / 'target' / a.profile /
-                    ('foundry-release' + suffix)), 'pack', '--source',
+                str(release), 'pack', '--source',
                 str(stage), '--output',
                 str(out / filename), '--platform', package_platform
             ],
@@ -137,6 +225,14 @@ def main():
     (out /
      'candidates.json').write_text(json.dumps(candidates, indent=2) + '\n')
     print(f'Prepared {len(candidates)} extension versions for {target}: {out}')
+
+
+def update_dev_alias(registry, out, id, version, stage):
+    if registry.versions(id)[-1:] == [version]:
+        alias = out / 'dev' / id
+        if alias.exists():
+            shutil.rmtree(alias)
+        shutil.copytree(stage, alias)
 
 
 if __name__ == '__main__':

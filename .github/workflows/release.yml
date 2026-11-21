@@ -159,6 +159,8 @@ jobs:
           target/release/foundry-release sign --input dist/approved/index.json --output dist/approved/index.json.sig --key-id "$FOUNDRY_KEY_ID"
           target/release/foundry-release verify --input dist/approved/index.json --signature dist/approved/index.json.sig --root trust/root.json
           target/release/foundry-release sign --input dist/approved/release-manifest.json --output dist/approved/release-manifest.json.sig --key-id "$FOUNDRY_KEY_ID" --domain release
+          target/release/foundry-release sign-installer --input dist/approved/release-manifest.json --manifest dist/approved/install-manifest.txt --output dist/approved/install-manifest.txt.sig --root trust/root.json --allowed-signers dist/approved/allowed_signers
+          ssh-keygen -Y verify -I foundry-release -n foundry-install-v1 -f dist/approved/allowed_signers -s dist/approved/install-manifest.txt.sig < dist/approved/install-manifest.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           {name: signed-release, path: dist/approved/, if-no-files-found: error}

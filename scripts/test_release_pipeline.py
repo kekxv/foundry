@@ -42,6 +42,16 @@ class ReleaseChecks(unittest.TestCase):
                     if 'any' not in declared and platform not in declared:
                         continue
                     plat = 'any' if 'any' in declared else platform
+                    external = registry.external_packages(
+                        name, extension_version)
+                    if external:
+                        packages.append(
+                            dict(id=name,
+                                 version=extension_version,
+                                 platform=plat,
+                                 size=8,
+                                 **external[plat]))
+                        continue
                     filename = f'{name}-{extension_version}-{plat}.zip'
                     data = filename.encode()
                     (part / filename).write_bytes(data)
@@ -110,6 +120,11 @@ class ReleaseChecks(unittest.TestCase):
             run('verify_candidate.py', False)
 
     def test_signed_history_survives_yank_and_restore(self):
+        for external in (False, True):
+            with self.subTest(external=external):
+                self.check_history(external)
+
+    def check_history(self, external):
         import shutil
         with tempfile.TemporaryDirectory(prefix='foundry-history-') as temp:
             d = Path(temp)
@@ -144,10 +159,16 @@ class ReleaseChecks(unittest.TestCase):
                 'size':
                     8
             }
+            if external:
+                original['url'] = 'https://downloads.example.org/demo.zip'
+                (extension / 'packages.yaml').write_text(
+                    f'any:\n  url: {original["url"]}\n'
+                    f'  sha256: "{original["sha256"]}"\n  size: 10\n',
+                    encoding='utf-8')
             history = {'packages': []}
             history_path = d / 'history.json'
 
-            def publish(sequence, yanked, records, assets):
+            def publish(sequence, yanked, records, assets, valid=True):
                 nonlocal history
                 shutil.rmtree(d / 'dist', ignore_errors=True)
                 (extension.parent / 'metadata.json').write_text(
@@ -189,19 +210,35 @@ class ReleaseChecks(unittest.TestCase):
                     env=env,
                     capture_output=True,
                     text=True)
+                if not valid:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(
+                        'External package does not match pinned metadata',
+                        result.stderr)
+                    return
                 self.assertEqual(result.returncode, 0, result.stderr)
                 history = json.loads(
                     (d / 'dist/approved/index.json').read_text())
 
-            (part / 'demo.zip').write_bytes(b'original')
-            publish(1, False, [original],
-                    {'demo.zip': {
-                        'size': 8,
-                        'sha256': original['sha256']
-                    }})
+            assets = {}
+            if not external:
+                (part / 'demo.zip').write_bytes(b'original')
+                assets['demo.zip'] = {'size': 8, 'sha256': original['sha256']}
+            publish(1, False, [original], assets)
+            self.assertEqual(history['packages'], [original])
+            if external:
+                self.assertFalse((d / 'dist/approved/demo.zip').exists())
             publish(2, True, [], {})
             self.assertEqual(history['packages'], [])
             self.assertEqual(history['withdrawnPackages'], [original])
+            if external:
+                pins = extension / 'packages.yaml'
+                original_pins = pins.read_text()
+                pins.write_text(
+                    original_pins.replace('downloads.example.org',
+                                          'other.example.org'))
+                publish(3, False, [original], {}, valid=False)
+                pins.write_text(original_pins)
             publish(3, False, [original], {})
             self.assertEqual(history['packages'], [original])
             self.assertEqual(history['withdrawnPackages'], [])
