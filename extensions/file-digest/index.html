@@ -1,0 +1,27 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="用 JavaScript 描述能力，以签名包分发。Foundry 连接 QuickJS、命令行与原生动态库。"><meta name="theme-color" content="#f7f6f2"><title>file-digest — Foundry</title><link rel="icon" href="/foundry/favicon.svg"><link rel="stylesheet" href="/foundry/_astro/Base.CQLptUa2.css"></head><body><a class="skip-link" href="#main-content">跳到正文</a><header class="nav wrap"><a href="/foundry/" class="brand" aria-label="Foundry 首页"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>foundry<span class="version">v0.1</span></a><nav aria-label="主导航"><a href="/foundry/extensions/" aria-current="page">扩展目录</a><a href="/foundry/docs/">开发文档</a><a class="nav-cta" href="/foundry/docs/#quick-start">开始构建 <span aria-hidden="true">↗</span></a></nav></header><main id="main-content"><div class="page-title wrap"><a class="breadcrumb" href="/foundry/extensions/">← 扩展目录</a><div class="eyebrow">OFFICIAL EXTENSION / 命令行</div><h1>file-digest</h1><p>通过独立命令行程序计算文件 SHA-256，让原生能力保持清晰的接口。</p><span class="badge"><span class="status-dot" aria-hidden="true"></span>v0.1.0 · 首次签名发布准备中</span></div><div class="doc-layout detail-layout wrap"><aside class="doc-nav" aria-label="扩展详情导航"><span>ON THIS PAGE</span><a href="#install">安装与调用</a><a href="#specification">扩展信息</a><a href="#versions">版本记录</a><a href="#capabilities">能力接口</a></aside><article class="content"><h2 id="install">安装与调用</h2><p>先配置可信索引与公钥根，再使用以下命令。首次发布前可参考开发文档在本地构建体验。</p><pre tabindex="0">foundry install file-digest --grant process.spawn
+foundry run file-digest digest --input &#39;{&quot;path&quot;:&quot;/absolute/path/to/file&quot;}&#39;</pre><h2 id="specification">扩展信息</h2><table><tbody><tr><th>实现类型</th><td>命令行 <code>(executable)</code></td></tr><tr><th>目标平台</th><td>Windows x64 / macOS arm64 / Linux x64 / Linux arm64</td></tr><tr><th>所需权限</th><td>process.spawn</td></tr><tr><th>JS 入口</th><td><code>main.js</code></td></tr><tr><th>源码目录</th><td><code>extensions/file-digest/0.1.0/</code></td></tr></tbody></table><h2 id="versions">版本记录</h2><p>指定版本安装：<code>foundry install file-digest --version 0.1.0 --grant process.spawn</code>。</p><table><tbody><tr><th>v0.1.0</th><td>待首次发布</td></tr></tbody></table><h2 id="capabilities">能力接口</h2><section class="capability-section"><h3>digest()</h3><p>digest</p><details class="contract-details"><summary>查看接口 Schema <span>JSON · 输入与输出</span></summary><pre tabindex="0" aria-label="digest 输入输出 JSON Schema">{
+  &quot;input&quot;: {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;additionalProperties&quot;: false,
+    &quot;properties&quot;: {
+      &quot;path&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;required&quot;: [
+      &quot;path&quot;
+    ]
+  },
+  &quot;output&quot;: {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;additionalProperties&quot;: false,
+    &quot;properties&quot;: {
+      &quot;sha256&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;required&quot;: [
+      &quot;sha256&quot;
+    ]
+  }
+}</pre></details></section><p class="callout">此扩展执行原生代码。独立进程用于故障隔离，不能限制原生代码的全部文件或网络访问。请只授权可信发布者的扩展。</p><p><a href="/foundry/docs/">用这个扩展作为起点，编写自己的能力 →</a></p></article></div></main><footer class="wrap"><div><a class="brand" href="/foundry/">foundry<span class="footer-dot" aria-hidden="true"></span></a><p>Small interface. Native possibilities.</p></div><div class="footer-links"><a href="/foundry/extensions/">探索扩展 ↗</a><a href="/foundry/docs/">编写你的第一个扩展 ↗</a></div><span class="footer-meta">OPEN SOURCE, OPEN POSSIBILITIES.<br>Rust / QuickJS / libffi</span></footer></body></html>
