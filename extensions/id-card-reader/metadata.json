@@ -1,6 +1,6 @@
 {
   "id": "id-card-reader",
-  "versions": ["0.1.0"],
+  "versions": ["0.1.0", "0.1.1"],
   "yanked_versions": {},
   "maintainers": []
 }
