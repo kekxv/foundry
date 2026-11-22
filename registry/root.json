@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "expiresAt": 1826848865,
+  "threshold": 1,
+  "keys": {
+    "foundry-production": "6dddc33419d81b6a4f45ac4ae89df7356d83a0adc0b7657d52edd9a916557eff"
+  }
+}

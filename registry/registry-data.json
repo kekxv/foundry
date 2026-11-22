@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "index": null,
+  "index": "index.json",
   "extensions": [
     {
       "id": "camera",

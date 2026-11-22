@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "sequence": 1,
+  "expiresAt": 1797905201,
+  "sourceCommit": "7a2fa3ed72c17ae0cf0259fa4844b33b64bf3db9",
+  "packages": [
+    {
+      "id": "camera",
+      "platform": "any",
+      "sha256": "2eb060c4620adc7ca3ca28ab5f9c88065716acea27e7086e6072176f4f94bee2",
+      "size": 1899,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/camera-0.1.0-any.zip"
+    },
+    {
+      "id": "file-digest",
+      "platform": "linux-arm64",
+      "sha256": "6f222f3b0b3a72ac8fe8d0e8b7b5ce00e6e45882418397a6000c9f3c87d496c3",
+      "size": 240268,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/file-digest-0.1.0-linux-arm64.zip"
+    },
+    {
+      "id": "id-card-reader",
+      "platform": "any",
+      "sha256": "eb2d29d79905c0fb72f7ab989efcb4ead9044ad4656a39787dc6fb4c6053a7bc",
+      "size": 2285,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/id-card-reader-0.1.0-any.zip"
+    },
+    {
+      "id": "native-math",
+      "platform": "linux-arm64",
+      "sha256": "c72ce7033d7300e48cf9b77775113711cf13ffa59e83ae9159cbab478e675a33",
+      "size": 5397,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/native-math-0.1.0-linux-arm64.zip"
+    },
+    {
+      "id": "ocr",
+      "platform": "any",
+      "sha256": "1422b8db7d7cc18123e524a7599ecb3325831e804274687c10012b694b82d8f9",
+      "size": 1669,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/ocr-0.1.0-any.zip"
+    },
+    {
+      "id": "serial-port",
+      "platform": "any",
+      "sha256": "11e2874fb31082f49ad337c2f5eb66b1cc82af69b15d72fcb5aecdfd55292491",
+      "size": 1717,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/serial-port-0.1.0-any.zip"
+    },
+    {
+      "id": "text-utils",
+      "platform": "any",
+      "sha256": "d3cc8ad7f75c5910ae2044adf4fa28c3e1b09d07eadc37e59fc8230a5a368a21",
+      "size": 867,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/text-utils-0.1.0-any.zip"
+    },
+    {
+      "id": "file-digest",
+      "platform": "linux-x64",
+      "sha256": "9199d74af607dda270e72345906287d733937d0af8db841f40460c146d1e9d05",
+      "size": 244659,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/file-digest-0.1.0-linux-x64.zip"
+    },
+    {
+      "id": "native-math",
+      "platform": "linux-x64",
+      "sha256": "fa6062cd4c6568a8c0cd6e621522282dd51733cee492bc511afb16a07e1714e3",
+      "size": 180326,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/native-math-0.1.0-linux-x64.zip"
+    },
+    {
+      "id": "file-digest",
+      "platform": "macos-arm64",
+      "sha256": "a8746613d067f1b9ac8dfe2b21fa7cdbe61db96731cb5d5315f3873b31f314dc",
+      "size": 220665,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/file-digest-0.1.0-macos-arm64.zip"
+    },
+    {
+      "id": "native-math",
+      "platform": "macos-arm64",
+      "sha256": "cb4959317c1d8ce8ec249b5e38aad82762622d1645f1bf196cd3dfb5c05b529a",
+      "size": 2478,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/native-math-0.1.0-macos-arm64.zip"
+    },
+    {
+      "id": "file-digest",
+      "platform": "windows-x64",
+      "sha256": "96a1bb0f24d4de2cefc79d43d3e5f0522603483caf837dd3cc2a512cf333e85d",
+      "size": 117441,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/file-digest-0.1.0-windows-x64.zip"
+    },
+    {
+      "id": "native-math",
+      "platform": "windows-x64",
+      "sha256": "6265b864446b0335303579baf2661b5a04bb00599f4db4863542b7822596caa2",
+      "size": 5811,
+      "version": "0.1.0",
+      "url": "https://kekxv.github.io/foundry/registry/packages/native-math-0.1.0-windows-x64.zip"
+    }
+  ],
+  "withdrawnPackages": []
+}
