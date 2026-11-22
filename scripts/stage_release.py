@@ -41,8 +41,7 @@ with zipfile.ZipFile(out / filename, 'w',
                          compress_type=zipfile.ZIP_DEFLATED)
     archive.write(ROOT / 'README.md', 'README.md')
     archive.write(ROOT / 'LICENSE', 'LICENSE')
-    if (ROOT / 'trust/root.json').exists():
-        archive.write(ROOT / 'trust/root.json', 'trust-root.json')
+    archive.write(ROOT / 'dist/history/root.json', 'trust-root.json')
 files = {
     p.name: {
         'size': p.stat().st_size,

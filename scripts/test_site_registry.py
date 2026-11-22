@@ -9,6 +9,7 @@ import unittest
 
 from pages_registry import checkout_pages
 from pages_registry import stage_registry
+from prepare_public_root import prepare_public_root
 from publish_catalogue import publish_catalogue
 from publish_catalogue import registry_url
 
@@ -16,6 +17,29 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class SiteRegistryTests(unittest.TestCase):
+
+    def test_public_root_is_preserved_and_extra_keys_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            derived = root / 'derived.json'
+            previous = root / 'previous.json'
+            output = root / 'public/root.json'
+            derived.write_text(
+                '{"keys":{"production":"public"},"threshold":1,"expiresAt":200}'
+            )
+            prepare_public_root(derived, previous, output)
+            self.assertEqual(output.read_bytes(), derived.read_bytes())
+
+            previous.write_text(
+                '{"keys":{"production":"public"},"threshold":1,"expiresAt":100}\n'
+            )
+            prepare_public_root(derived, previous, output)
+            self.assertEqual(output.read_bytes(), previous.read_bytes())
+
+            previous.write_text(
+                '{"keys":{"production":"public","extra":"key"},"threshold":1}')
+            with self.assertRaisesRegex(ValueError, 'does not match'):
+                prepare_public_root(derived, previous, output)
 
     def test_checkout_reads_pages_without_touching_source_checkout(self):
         with tempfile.TemporaryDirectory() as directory:

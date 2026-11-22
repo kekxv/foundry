@@ -50,7 +50,7 @@
 ## 上线前仍需外部配置与验证
 
 1. 真实 GitHub 仓库和默认分支 main。
-2. 审核后的生产公钥根 `trust/root.json`，受保护 Environment 中的私钥 secret 和 key ID。
+2. 受保护签名环境中的生产私钥 secret。发布流程生成并发布公钥根。
 3. GitHub 分支保护、必需审核人、签名环境审批与默认分支限制。
 4. 在对应 runner 实际运行 Windows、macOS、Linux ARM64 构建与调用；本机只有 Linux x64 执行证据。
 5. 预发布签名、Release 上传、gh-pages 远端部署与下载验收。

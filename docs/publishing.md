@@ -4,7 +4,7 @@
 
 1. 推送到真实 GitHub 仓库，默认分支使用 `main`（如更名，同步修改 CI/pages 的分支过滤）。
 2. 保护主分支，要求 PR 审核和平台 CI；为工作流、签名工具、发布脚本、Cargo 依赖与公钥根设置维护者审核规则。
-3. 按 [信任根配置](../trust/README.md) 生成 Ed25519 密钥。将公开的 `trust/root.json` 审核后提交。GitHub 的 `release-signing` 环境使用 `FOUNDRY_SIGNING_KEY` secret 保存私钥 PEM 或旧格式的十六进制 seed，使用 `FOUNDRY_KEY_ID` 变量保存对应的 key ID。
+3. 将 Ed25519 私钥 PEM 或十六进制 seed 存为 GitHub `release-signing` 环境的 `FOUNDRY_SIGNING_KEY` secret。首次发布自动生成公钥根，默认 key ID 为 `foundry-production`。已有自定义 ID 的仓库可以继续用 `FOUNDRY_KEY_ID` 变量。[信任根配置](../trust/README.md)
 4. 给 `release-signing` 设置 required reviewers、禁止自批并限制默认分支；`release-publishing` 也限制默认分支。环境规则需要管理员配置，YAML 无法替代这些设置。
 5. GitHub Pages 的 Source 设为 Deploy from a branch，选择 gh-pages / root。仓库允许 Actions 对部署 job 使用 contents:write。
 
@@ -18,7 +18,7 @@ PR 的候选打包和 **PR malware scan** 共用基于 PR 文件差异生成的�
 
 ClamAV 病毒库按 UTC 日期缓存。当天命中时直接使用，跨天时恢复已有病毒库并由 FreshClam 更新。默认分支每天定时预热缓存，推送到 `main` 时也会预热，供不同 PR 共享。
 
-合并后手动触发 Signed release workflow，提供新的稳定版本号和严格递增 sequence。版本号需与 Cargo workspace 一致。流程拒绝已有版本，不覆盖资产，按 workflow 固定 sourceCommit 构建。首次发布需要 `trust/root.json`。
+合并后手动触发 Signed release workflow，提供新的稳定版本号和严格递增 sequence。版本号需与 Cargo workspace 一致。流程拒绝已有版本，并基于触发时的提交构建。首次发布在受保护环境中从私钥生成公钥根，嵌入客户端并发布到 Pages。后续发布沿用 `gh-pages` 上的公钥根。
 
 无密钥构建 job 为每平台生成客户端 ZIP、worker 及正式扩展；候选 job 合并索引并显示提交与 release-manifest SHA-256。维护者核对后批准 release-signing。签名 job 校验所有资产摘要、包 URL、提交及平台集合，仅签名元数据；发布 job 才拥有 Release 写权限，且没有签名私钥。30 天有效索引需要到期前发布新批次；旧版本已安装包离线运行不受索引过期影响。
 

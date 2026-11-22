@@ -101,8 +101,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix='foundry-pages-') as temp:
         previous = checkout_pages(Path(temp))
         out = Path('website/public/registry')
-        stage_registry(previous, out, args.signed, Path('trust/root.json'),
-                       args.repository)
+        root = args.signed / 'root.json' if args.signed else None
+        stage_registry(previous, out, args.signed, root, args.repository)
         publish_catalogue(Path.cwd(), out)
 
 

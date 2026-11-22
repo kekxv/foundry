@@ -87,10 +87,12 @@ enum Commands {
         #[arg(long)]
         key_id: String,
     },
-    /// Create a Foundry trust root from an Ed25519 PEM public key
+    /// Create a Foundry trust root from an Ed25519 key
     TrustRoot {
-        #[arg(long)]
-        public_key: PathBuf,
+        #[arg(long, required_unless_present = "from_signing_key")]
+        public_key: Option<PathBuf>,
+        #[arg(long, conflicts_with = "public_key")]
+        from_signing_key: bool,
         #[arg(long, default_value = "trust/root.json")]
         output: PathBuf,
         #[arg(long, default_value = "foundry-production")]
@@ -282,12 +284,17 @@ fn run() -> Result<()> {
         }
         Commands::TrustRoot {
             public_key,
+            from_signing_key: _,
             output,
             key_id,
         } => {
-            let pem = std::fs::read_to_string(public_key).context("read Ed25519 public key")?;
-            let key = VerifyingKey::from_public_key_pem(pem.trim())
-                .context("expected an Ed25519 public key in PEM format")?;
+            let key = if let Some(public_key) = public_key {
+                let pem = std::fs::read_to_string(public_key).context("read Ed25519 public key")?;
+                VerifyingKey::from_public_key_pem(pem.trim())
+                    .context("expected an Ed25519 public key in PEM format")?
+            } else {
+                signing_key()?.verifying_key()
+            };
             write_trust_root(&key_id, &key, &output)?;
         }
     }

@@ -22,6 +22,7 @@ jobs:
       sequence: ${{ steps.check.outputs.sequence }}
       commit: ${{ github.sha }}
       history_sha256: ${{ steps.check.outputs.history_sha256 }}
+      first_release: ${{ steps.check.outputs.first_release }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {ref: '${{ github.sha }}', persist-credentials: false}
@@ -42,8 +43,33 @@ jobs:
             path: dist/history/,
             if-no-files-found: error,
           }
-  build:
+  prepare-root:
+    name: Prepare and authenticate the public root
     needs: validate
+    runs-on: ubuntu-22.04
+    environment: release-signing
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          {
+            ref: '${{ needs.validate.outputs.commit }}',
+            persist-credentials: false,
+          }
+      - run: cargo build --locked -p foundry-release
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with: {name: verified-history, path: dist/history}
+      - name: Derive the public key
+        env:
+          FOUNDRY_SIGNING_KEY: ${{ secrets.FOUNDRY_SIGNING_KEY }}
+          FOUNDRY_KEY_ID: ${{ vars.FOUNDRY_KEY_ID || 'foundry-production' }}
+        run: target/debug/foundry-release trust-root --from-signing-key --key-id "$FOUNDRY_KEY_ID" --output derived-root.json
+      - name: Preserve the published trust root
+        run: python scripts/prepare_public_root.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          {name: public-root, path: public/root.json, if-no-files-found: error}
+  build:
+    needs: [validate, prepare-root]
     strategy:
       fail-fast: false
       matrix:
@@ -66,13 +92,15 @@ jobs:
       - run: python scripts/test_registry.py
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with: {name: verified-history, path: dist/history}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with: {name: public-root, path: dist/history}
       - uses: ./.github/actions/setup-build
       - run: cargo test --workspace --locked
       - name: Build clients with the default registry
         shell: bash
         run: |
           FOUNDRY_INDEX_URL=$(python scripts/publish_catalogue.py --index-url "$GITHUB_REPOSITORY")
-          FOUNDRY_TRUST_ROOT=$(python -c 'import json; print(json.dumps(json.load(open("trust/root.json"))))')
+          FOUNDRY_TRUST_ROOT=$(python -c 'import json; print(json.dumps(json.load(open("dist/history/root.json"))))')
           export FOUNDRY_INDEX_URL FOUNDRY_TRUST_ROOT
           cargo build --release --workspace --locked
       - run: python scripts/test_device_plugins.py
@@ -142,6 +170,8 @@ jobs:
         with: {name: verified-history, path: dist/history}
       - run: rustup show && cargo build --release --locked -p foundry-release
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with: {name: public-root, path: dist/history}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with: {name: approved-candidate, path: dist/approved}
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with: {python-version: '3.12'}
@@ -158,16 +188,16 @@ jobs:
       - name: Sign data only (never run candidate binaries)
         env:
           FOUNDRY_SIGNING_KEY: ${{ secrets.FOUNDRY_SIGNING_KEY }}
-          FOUNDRY_KEY_ID: ${{ vars.FOUNDRY_KEY_ID }}
+          FOUNDRY_KEY_ID: ${{ vars.FOUNDRY_KEY_ID || 'foundry-production' }}
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$FOUNDRY_KEY_ID"
           target/release/foundry-release sign --input dist/approved/index.json --output dist/approved/index.json.sig --key-id "$FOUNDRY_KEY_ID"
-          target/release/foundry-release verify --input dist/approved/index.json --signature dist/approved/index.json.sig --root trust/root.json
+          target/release/foundry-release verify --input dist/approved/index.json --signature dist/approved/index.json.sig --root dist/history/root.json
           target/release/foundry-release sign --input dist/approved/release-manifest.json --output dist/approved/release-manifest.json.sig --key-id "$FOUNDRY_KEY_ID" --domain release
-          target/release/foundry-release sign-installer --input dist/approved/release-manifest.json --manifest dist/approved/install-manifest.txt --output dist/approved/install-manifest.txt.sig --root trust/root.json --allowed-signers dist/approved/allowed_signers
+          target/release/foundry-release sign-installer --input dist/approved/release-manifest.json --manifest dist/approved/install-manifest.txt --output dist/approved/install-manifest.txt.sig --root dist/history/root.json --allowed-signers dist/approved/allowed_signers
           ssh-keygen -Y verify -I foundry-release -n foundry-install-v1 -f dist/approved/allowed_signers -s dist/approved/install-manifest.txt.sig < dist/approved/install-manifest.txt
+          cp dist/history/root.json dist/approved/root.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           {name: signed-release, path: dist/approved/, if-no-files-found: error}
@@ -177,8 +207,49 @@ jobs:
     with:
       signed-registry: true
     permissions: {contents: write}
-  publish:
+  verify-pages:
+    name: Install id-card-reader from GitHub Pages
     needs: [validate, pages]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with: {name: signed-release, path: dist/release}
+      - name: Wait for the signed index and test the default client
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          FIRST_RELEASE: ${{ needs.validate.outputs.first_release }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          owner=${GITHUB_REPOSITORY%/*}
+          repo=${GITHUB_REPOSITORY#*/}
+          base="/$repo"
+          if [[ "${repo,,}" == "${owner,,}.github.io" ]]; then base=""; fi
+          index="https://$owner.github.io$base/registry/index.json"
+          has_reader=$(jq -r 'any(.packages[]; .id == "id-card-reader")' dist/release/index.json)
+          if [[ "$has_reader" == false && "$FIRST_RELEASE" == true ]]; then
+            echo "The signed registry has no installable id-card-reader version." >&2
+            exit 1
+          fi
+          unzip -q "dist/release/foundry-$VERSION-linux-x64.zip" -d "$RUNNER_TEMP/client"
+          client="$RUNNER_TEMP/client/foundry"
+          for attempt in {1..40}; do
+            if curl --fail --silent --show-error --max-time 10 "$index" -o "$RUNNER_TEMP/index.json" &&
+              cmp -s dist/release/index.json "$RUNNER_TEMP/index.json"; then
+              if [[ "$has_reader" == false ]]; then exit 0; fi
+              state=$(mktemp -d "$RUNNER_TEMP/foundry-test.XXXXXXXX")
+              if "$client" --data-dir "$state" install id-card-reader; then
+                "$client" --data-dir "$state" run id-card-reader read-card --input '{}' |
+                  jq -e '.pluginKind == "id-card-reader" and .data.documentType == "cn-resident-id"'
+                exit 0
+              fi
+            fi
+            if [[ "$attempt" == 40 ]]; then exit 1; fi
+            sleep 10
+          done
+  publish:
+    needs: [validate, verify-pages]
     runs-on: ubuntu-22.04
     environment: release-publishing
     permissions: {contents: write}

@@ -83,3 +83,41 @@ fn installer_signature_interoperates_with_openssh() {
     assert!(!verify("foundry-install-v1", b"changed"));
     assert!(!verify("foundry-release", &message));
 }
+
+#[test]
+fn derives_initial_public_root_from_environment_key() {
+    let dir = tempfile::tempdir().unwrap();
+    let initial = dir.path().join("initial.json");
+    let published = dir.path().join("published.json");
+    let key = dir.path().join("private");
+    let release = env!("CARGO_BIN_EXE_foundry-release");
+    let generate = Command::new(release)
+        .args([
+            "keygen",
+            "--key-id",
+            "foundry-production",
+            "--private-output",
+        ])
+        .arg(&key)
+        .arg("--root-output")
+        .arg(&initial)
+        .output()
+        .unwrap();
+    assert!(generate.status.success(), "{generate:?}");
+    let derive = || {
+        Command::new(release)
+            .args(["trust-root", "--from-signing-key", "--output"])
+            .arg(&published)
+            .env("FOUNDRY_SIGNING_KEY", fs::read_to_string(&key).unwrap())
+            .output()
+            .unwrap()
+    };
+    let output = derive();
+    assert!(output.status.success(), "{output:?}");
+    let read =
+        |path| serde_json::from_slice::<serde_json::Value>(&fs::read(path).unwrap()).unwrap();
+    assert_eq!(read(&initial)["keys"], read(&published)["keys"]);
+    let original = fs::read(&published).unwrap();
+    assert!(!derive().status.success());
+    assert_eq!(fs::read(&published).unwrap(), original);
+}
